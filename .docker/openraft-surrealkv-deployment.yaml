@@ -1,0 +1,110 @@
+# openraft-surrealkv-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openraft-surrealkv
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: openraft-surrealkv
+  template:
+    metadata:
+      labels:
+        app: openraft-surrealkv
+    spec:
+      containers:
+        - name: openraft-surrealkv
+          image: your-registry/openraft-surrealkv:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 50051   # gRPC
+              name: grpc
+            - containerPort: 8080    # HTTP API
+              name: http
+          env:
+            - name: NODE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name   # 或使用 StatefulSet + ordinal index
+            - name: GRPC_PORT
+              value: "50051"
+            - name: HTTP_PORT
+              value: "8080"
+            - name: DATA_DIR
+              value: "/data"
+            - name: SNAPSHOTS_DIR
+              value: "/snapshots"
+            - name: RUST_LOG
+              value: "info,openraft=warn"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: snapshots
+              mountPath: /snapshots
+          resources:
+            requests:
+              cpu: "400m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+      volumes:
+        - name: data
+          emptyDir: { }          # 生产建议换成 PersistentVolumeClaim
+        - name: snapshots
+          emptyDir: { }
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: openraft-surrealkv
+spec:
+  selector:
+    app: openraft-surrealkv
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP   # 或 LoadBalancer / NodePort 根据需求
+
+---
+
+# 可选：简单 HPA（水平自动扩展）
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: openraft-surrealkv-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: openraft-surrealkv
+  minReplicas: 3
+  maxReplicas: 9
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

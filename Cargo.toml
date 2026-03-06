@@ -1,0 +1,57 @@
+[package]
+name = "openraft-surrealkv"
+version = "0.0.1"
+edition = "2024"
+authors = ["houseme <housemecn@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/houseme/openraft-surrealkv"
+rust-version = "1.93"
+documentation = "https://docs.rs/openraft-surrealkv"
+homepage = "https://houseme.github.io/openraft-surrealkv"
+readme = "README.md"
+description = "A simple key-value store built on top of OpenRaft, designed for learning and experimentation with Raft consensus algorithm."
+keywords = ["raft", "surrealkv", "consensus", "openraft", "distributed-systems"]
+categories = ["algorithms", "asynchronous", "data-structures", "database-implementations"]
+build = "build.rs"
+
+resolver = "3"
+
+[features]
+default = []
+
+[dependencies]
+openraft = { version = "0.10.0-alpha.15", features = ["serde", "tracing-log"] }
+openraft-legacy = { version = "0.10.0-alpha.15" }
+surrealkv = "0.20.2"
+async-trait = "0.1.89"
+tokio = { version = "1.50", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+postcard = { version = "1.0", features = ["use-std"] }
+anyhow = "1.0.102"
+prost = "0.14"
+tonic = { version = "0.14.5", features = ["transport", "server", "tls-aws-lc"] }
+tonic-prost = "0.14.5"
+async-stream = "0.3.6"
+uuid = { version = "1.10", features = ["v4"] }
+tracing = "0.1"
+tokio-stream = "0.1.18"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+zstd = { version = "0.13.2", features = ["zstdmt"] }
+walkdir = "2.5"
+astral-tokio-tar = "0.5.6"
+async-compression = { version = "0.4.41", features = ["tokio", "zstd"] }
+axum = "0.8.8"
+metrics = "0.23"
+metrics-exporter-prometheus = "0.18.1"
+crc-fast = "1.9.0"
+serde_json = "1.0.149"
+
+
+[build-dependencies]
+tonic-prost-build = "0.14.5"
+
+[dev-dependencies]
+openraft = { version = "0.10.0-alpha.15", features = ["tracing-log"] }
+tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
+tonic = { version = "0.14.5", features = ["transport"] }
+tempfile = "3"

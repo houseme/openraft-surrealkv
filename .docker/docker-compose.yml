@@ -1,0 +1,94 @@
+services:
+  node1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.multi
+    container_name: openraft-surrealkv-node1
+    ports:
+      - "50051:50051"   # gRPC
+      - "8080:8080"     # HTTP API
+    volumes:
+      - node1_data:/data
+      - node1_snapshots:/snapshots
+    environment:
+      - NODE_ID=1
+      - GRPC_PORT=50051
+      - HTTP_PORT=8080
+      - DATA_DIR=/data
+      - SNAPSHOTS_DIR=/snapshots
+      - RUST_LOG=info,openraft=warn,axum=info
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 512M
+
+  node2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.multi
+    container_name: openraft-surrealkv-node2
+    ports:
+      - "50052:50051"
+      - "8081:8080"
+    volumes:
+      - node2_data:/data
+      - node2_snapshots:/snapshots
+    environment:
+      - NODE_ID=2
+      - GRPC_PORT=50051
+      - HTTP_PORT=8080
+      - DATA_DIR=/data
+      - SNAPSHOTS_DIR=/snapshots
+      - PEERS=node1:50051
+      - RUST_LOG=info,openraft=warn
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  node3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.multi
+    container_name: openraft-surrealkv-node3
+    ports:
+      - "50053:50051"
+      - "8082:8080"
+    volumes:
+      - node3_data:/data
+      - node3_snapshots:/snapshots
+    environment:
+      - NODE_ID=3
+      - GRPC_PORT=50051
+      - HTTP_PORT=8080
+      - DATA_DIR=/data
+      - SNAPSHOTS_DIR=/snapshots
+      - PEERS=node1:50051,node2:50051
+      - RUST_LOG=info,openraft=warn
+    depends_on:
+      node1:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  node1_data:
+  node1_snapshots:
+  node2_data:
+  node2_snapshots:
+  node3_data:
+  node3_snapshots:

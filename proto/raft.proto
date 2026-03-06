@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package raft;
+
+option go_package = "github.com/houseme/openraft-surrealkv/proto";
+
+// Raft core RPC service — used between cluster nodes
+service RaftService {
+  // Standard Raft AppendEntries RPC (heartbeat + log replication)
+  rpc AppendEntries (RaftMessage) returns (RaftMessage);
+
+  // Standard Raft RequestVote RPC (leader election)
+  rpc RequestVote (RaftMessage) returns (RaftMessage);
+
+  // Snapshot installation — unary to match OpenRaft's chunked replication
+  rpc InstallSnapshot (RaftMessage) returns (RaftMessage);
+}
+
+// Wire format wrapper — all real messages are postcard-serialized inside payload
+message RaftMessage {
+  bytes payload = 1;      // postcard-serialized OpenRaft struct (AppendEntriesRequest, etc.)
+}
