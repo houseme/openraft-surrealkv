@@ -93,36 +93,34 @@ async fn main() -> anyhow::Result<()> {
     // 9. 启动 HTTP 服务器（如果启用）
     if config.http.enabled {
         let http_server = HttpServer::with_raft(
-            config.http.port,
             storage.clone(),
-            Some(raft_node.clone()),
+            raft_node.clone(),
             config.node.node_id,
+            config.http.port,
         );
 
         let addr = format!("0.0.0.0:{}", config.http.port);
-        tracing::info!(addr = %addr, "Starting HTTP API server");
+        info!(addr = %addr, "Starting HTTP API server");
 
         let server_handle = tokio::spawn(async move {
-            if let Err(e) = http_server.start(&addr).await {
-                tracing::error!(error = %e, "HTTP server failed");
+            if let Err(e) = http_server.serve().await {
+                error!(error = %e, "HTTP server failed");
             }
         });
 
         // 启动自检日志
         let ready_probe = storage.read("__ready_probe__").await;
         let ready_details = match ready_probe {
-            Ok(_) => format!("storage_ok latency=0ms"),
+            Ok(_) => "storage_ok latency=0ms".to_string(),
             Err(e) => format!("storage_error: {}", e),
         };
         let raft_status = if raft_node.is_standalone {
             "standalone".to_string()
-        } else if raft_node.raft.is_some() {
-            "raft_mounted".to_string()
         } else {
-            "raft_none".to_string()
+            "running".to_string()
         };
 
-        tracing::info!(
+        info!(
             node_id = config.node.node_id,
             raft_status = %raft_status,
             ready_details = %ready_details,
@@ -130,19 +128,19 @@ async fn main() -> anyhow::Result<()> {
             "🚀 Node startup self-check complete"
         );
 
-        // Wait for Ctrl+C
-        tokio::select! {
-            _ = shutdown_signal.wait_shutdown() => {
-                tracing::info!("Shutdown signal received, stopping services");
-            }
-        }
+        info!("Waiting for Ctrl+C");
+        tokio::signal::ctrl_c().await?;
+        shutdown_signal.shutdown();
+        info!("Shutdown signal received, stopping services");
 
-        // Graceful shutdown
-        tracing::info!("Waiting for HTTP server to shutdown");
+        // Graceful shutdown (best-effort for spawned server task)
+        info!("Stopping HTTP server task");
+        server_handle.abort();
         let _ = server_handle.await;
     } else {
-        // Wait for Ctrl+C even if HTTP is disabled
-        shutdown_signal.wait_shutdown().await;
+        info!("HTTP disabled, waiting for Ctrl+C");
+        tokio::signal::ctrl_c().await?;
+        shutdown_signal.shutdown();
     }
 
     info!("Shutting down gracefully...");

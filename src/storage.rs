@@ -57,9 +57,9 @@ fn snapshot_error(
 #[derive(Clone)]
 pub struct SurrealStorage {
     tree: Arc<Tree>,
-    metadata: Arc<MetadataManager>,
+    pub(crate) metadata: Arc<MetadataManager>,
     state_machine: Arc<RwLock<StateMachine>>,
-    raft_logs: Arc<RwLock<BTreeMap<u64, LogEntry>>>,
+    pub(crate) raft_logs: Arc<RwLock<BTreeMap<u64, LogEntry>>>,
     merge_executor: Option<Arc<MergeExecutor>>,
 }
 
@@ -454,10 +454,8 @@ impl SnapshotBuilderImpl {
     }
 }
 
-// NOTE: OpenRaft trait implementations are temporarily disabled
-// The full Raft integration requires matching the exact trait signatures from openraft 0.10
-// For now, the system runs in standalone mode with storage-backed operations
-// Full Raft consensus will be completed in Phase 5.2 final integration
+// OpenRaft trait implementations are in storage_raft_impl.rs module
+// This keeps storage.rs focused on core storage logic
 
 #[cfg(test)]
 mod tests {

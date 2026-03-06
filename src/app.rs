@@ -16,7 +16,8 @@ pub struct RaftNode {
 
 impl RaftNode {
     /// 创建新的 Raft Node
-    /// NOTE: Currently creates standalone mode due to OpenRaft trait implementation in progress
+    /// NOTE: OpenRaft trait 实现正在进行中，当前使用 standalone 模式
+    /// 参考：docs/MULTI_NODE_RAFT_GUIDE.md
     pub async fn new(
         config: &Config,
         storage: Arc<SurrealStorage>,
@@ -24,7 +25,7 @@ impl RaftNode {
     ) -> anyhow::Result<Self> {
         tracing::warn!(
             node_id = config.node.node_id,
-            "Raft trait implementation in progress, running in standalone mode"
+            "Raft trait implementation in progress (see MULTI_NODE_RAFT_GUIDE.md), running in standalone mode"
         );
         Self::new_standalone(config, storage).await
     }
@@ -111,7 +112,7 @@ mod tests {
     #[test]
     fn test_raft_config_creation() {
         let config = Config::default();
-        let mut raft_config = RaftConfig::default();
+        let mut raft_config = openraft::Config::default();
         raft_config.heartbeat_interval = config.raft.heartbeat_interval_ms;
         assert_eq!(raft_config.heartbeat_interval, 500);
     }
