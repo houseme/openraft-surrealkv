@@ -22,7 +22,7 @@ default = []
 [dependencies]
 openraft = { version = "0.10.0-alpha.15", features = ["serde", "tracing-log"] }
 openraft-legacy = { version = "0.10.0-alpha.15" }
-surrealkv = "0.20.2"
+surrealkv = "0.21.0"
 async-trait = "0.1.89"
 tokio = { version = "1.50", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
