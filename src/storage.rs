@@ -8,6 +8,8 @@
 //! The storage adapts to work with both OpenRaft versions through the raft_adapter module.
 
 use crate::error::{Error, Result};
+use crate::merge::{DeltaMergePolicy, MergeCleanup, MergeCleanupConfig, MergeExecutor};
+use crate::metrics::{record_snapshot_strict_error, MergeMetrics, SnapshotStage};
 use crate::snapshot::{
     decode_snapshot_payload, DecodedSnapshotPayload, RaftSnapshotBuilder, SnapshotBuildConfig,
 };
@@ -20,22 +22,45 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use surrealkv::Tree;
 use tokio::sync::RwLock;
+use tracing::{error, warn};
 
 const ERR_SNAPSHOT_INSTALL_BASE_MISMATCH: &str = "SNAPSHOT_INSTALL_BASE_MISMATCH";
 const ERR_SNAPSHOT_INSTALL_INVALID_PAYLOAD: &str = "SNAPSHOT_INSTALL_INVALID_PAYLOAD";
 const ERR_SNAPSHOT_INSTALL_DELTA_DECODE: &str = "SNAPSHOT_INSTALL_DELTA_DECODE";
 const ERR_SNAPSHOT_INSTALL_DELTA_APPLY_DECODE: &str = "SNAPSHOT_INSTALL_DELTA_APPLY_DECODE";
 
-fn snapshot_error(kind: &str, detail: impl Into<String>) -> Error {
-    Error::Snapshot(format!("{}: {}", kind, detail.into()))
+fn snapshot_error(
+    kind: &str,
+    stage: SnapshotStage,
+    detail: impl Into<String>,
+    base_index: u64,
+    applied_index: u64,
+) -> Error {
+    let detail = detail.into();
+    record_snapshot_strict_error(kind, stage, base_index, applied_index);
+    error!(
+        error_key = kind,
+        snapshot_stage = stage.as_str(),
+        base_index,
+        applied_index,
+        detail = %detail,
+        "strict snapshot error kind={} stage={} base_index={} applied_index={}",
+        kind,
+        stage.as_str(),
+        base_index,
+        applied_index,
+    );
+    Error::Snapshot(format!("{}: {}", kind, detail))
 }
 
 /// SurrealStorage - unified storage backend for Raft logs, state machine, and metadata
+#[derive(Clone)]
 pub struct SurrealStorage {
     tree: Arc<Tree>,
     metadata: Arc<MetadataManager>,
     state_machine: Arc<RwLock<StateMachine>>,
     raft_logs: Arc<RwLock<BTreeMap<u64, LogEntry>>>,
+    merge_executor: Option<Arc<MergeExecutor>>,
 }
 
 /// In-memory state machine that stores application data
@@ -55,7 +80,101 @@ impl SurrealStorage {
             metadata,
             state_machine: Arc::new(RwLock::new(StateMachine::default())),
             raft_logs: Arc::new(RwLock::new(BTreeMap::new())),
+            merge_executor: None,
         })
+    }
+
+    /// Enable automatic background merge with custom policy
+    pub fn with_merge_policy(
+        mut self,
+        policy: DeltaMergePolicy,
+        node_id: impl Into<String>,
+    ) -> Self {
+        let executor = MergeExecutor::new(
+            self.metadata.clone(),
+            policy,
+            MergeMetrics::new(node_id),
+            MergeCleanup::new(MergeCleanupConfig::default()),
+        );
+        self.merge_executor = Some(Arc::new(executor));
+        self
+    }
+
+    /// Enable automatic background merge with default policy
+    pub fn with_default_merge(self, node_id: impl Into<String>) -> Self {
+        self.with_merge_policy(DeltaMergePolicy::default(), node_id)
+    }
+
+    /// Recover from incomplete merge task after crash/restart.
+    ///
+    /// This method inspects persisted MergeProgressState and decides:
+    /// - If merge was in_progress: retry the merge task
+    /// - If merge completed: no action (idempotent)
+    /// - If merge failed with max retries: clear state and allow new merge
+    pub async fn recover_merge_state(&self) -> Result<()> {
+        let progress = self.metadata.get_merge_progress_state().await;
+
+        if !progress.in_progress {
+            // 合并已完成或从未开始，无需恢复
+            return Ok(());
+        }
+
+        warn!(
+            trigger = progress.trigger_reason.as_deref().unwrap_or("unknown"),
+            attempt = progress.attempt,
+            max_retries = progress.max_retries,
+            started_at = progress.started_at,
+            "detected incomplete merge task from previous session, attempting recovery"
+        );
+
+        // 检查是否已达最大重试次数
+        if progress.attempt >= progress.max_retries {
+            error!(
+                trigger = progress.trigger_reason.as_deref().unwrap_or("unknown"),
+                attempt = progress.attempt,
+                max_retries = progress.max_retries,
+                last_error = progress.last_error.as_deref().unwrap_or("none"),
+                "merge task exhausted retries, clearing state to allow future merge"
+            );
+
+            // 清除失败状态，允许后续新的合并
+            use crate::state::MergeProgressState;
+            self.metadata
+                .save_merge_progress_state(MergeProgressState::new())
+                .await?;
+            return Ok(());
+        }
+
+        // 如果有 merge_executor 配置，尝试重新启动合并
+        if let Some(executor) = &self.merge_executor {
+            match executor.spawn_if_needed().await {
+                Ok(Some(handle)) => {
+                    tracing::info!(
+                        trigger = handle.trigger.as_str(),
+                        "merge recovery task spawned successfully"
+                    );
+                }
+                Ok(None) => {
+                    tracing::info!("merge recovery skipped: policy conditions no longer met");
+                    // 策略不再满足，清除进行中状态
+                    use crate::state::MergeProgressState;
+                    self.metadata
+                        .save_merge_progress_state(MergeProgressState::new())
+                        .await?;
+                }
+                Err(e) => {
+                    error!(
+                        error = %e,
+                        "merge recovery spawn failed, will retry on next snapshot build"
+                    );
+                    return Err(e);
+                }
+            }
+        } else {
+            warn!("merge executor not configured, cannot recover merge task");
+        }
+
+        Ok(())
     }
 
     pub fn metadata(&self) -> Arc<MetadataManager> {
@@ -115,6 +234,8 @@ impl SurrealStorage {
     }
 
     /// Build snapshot and select full/delta automatically using metadata policy.
+    ///
+    /// After snapshot creation, automatically triggers background merge if policy is met.
     pub async fn build_snapshot_auto(&self, current_term: u64) -> Result<Snapshot<RaftTypeConfig>> {
         let applied = self.metadata.get_applied_state().await;
         let mut snapshot_state = self.metadata.get_snapshot_state().await;
@@ -172,12 +293,16 @@ impl SurrealStorage {
                 DecodedSnapshotPayload::Delta { metadata, entries } => {
                     let start_index = entries.first().map(|x| x.index).unwrap_or(0);
                     let end_index = entries.last().map(|x| x.index).unwrap_or(start_index);
-                    snapshot_state.delta_chain.push(DeltaInfo::new(
+                    let mut info = DeltaInfo::new(
                         start_index,
                         end_index,
                         metadata.size_bytes,
                         metadata.created_at,
-                    ));
+                    );
+                    if let Some(path) = metadata.file_path {
+                        info = info.with_file_path(path);
+                    }
+                    snapshot_state.delta_chain.push(info);
                     snapshot_state.total_delta_bytes = snapshot_state
                         .total_delta_bytes
                         .saturating_add(metadata.size_bytes);
@@ -187,16 +312,34 @@ impl SurrealStorage {
             self.metadata.save_snapshot_state(snapshot_state).await?;
         }
 
+        // Phase 4: Trigger background merge if policy is met
+        if let Some(executor) = &self.merge_executor {
+            if let Ok(Some(handle)) = executor.spawn_if_needed().await {
+                tracing::info!(
+                    trigger = handle.trigger.as_str(),
+                    "background merge task spawned after snapshot creation"
+                );
+                // 不等待合并完成，立即返回 snapshot（非阻塞）
+            }
+        }
+
         Ok(snapshot)
     }
 
     /// Install full or delta snapshot depending on payload format.
     pub async fn install_snapshot_auto(&self, snapshot: Snapshot<RaftTypeConfig>) -> Result<()> {
-        let decoded = decode_snapshot_payload(snapshot.snapshot.get_ref())
-            .map_err(|e| snapshot_error(ERR_SNAPSHOT_INSTALL_DELTA_DECODE, e.to_string()))?;
+        let decoded = decode_snapshot_payload(snapshot.snapshot.get_ref()).map_err(|e| {
+            snapshot_error(
+                ERR_SNAPSHOT_INSTALL_DELTA_DECODE,
+                SnapshotStage::DecodePayload,
+                e.to_string(),
+                0,
+                0,
+            )
+        })?;
 
         if let Some(decoded) = decoded {
-            match decoded {
+            return match decoded {
                 DecodedSnapshotPayload::Delta { metadata, entries } => {
                     let base_index = match metadata.format {
                         SnapshotFormat::Delta { base_index, .. } => base_index,
@@ -205,28 +348,48 @@ impl SurrealStorage {
 
                     let applied = self.metadata.get_applied_state().await;
                     if applied.last_applied_index != base_index {
+                        warn!(
+                            error_key = ERR_SNAPSHOT_INSTALL_BASE_MISMATCH,
+                            snapshot_stage = SnapshotStage::ValidateBase.as_str(),
+                            expected_base_index = base_index,
+                            applied_index = applied.last_applied_index,
+                            "delta base index mismatch during install"
+                        );
                         return Err(snapshot_error(
                             ERR_SNAPSHOT_INSTALL_BASE_MISMATCH,
+                            SnapshotStage::ValidateBase,
                             format!(
                                 "expected={}, got={}",
                                 base_index, applied.last_applied_index
                             ),
+                            base_index,
+                            applied.last_applied_index,
                         ));
                     }
 
                     self.apply_delta_entries(&entries).await?;
-                    return Ok(());
+                    Ok(())
                 }
                 DecodedSnapshotPayload::Full(_) => {
                     let mut builder = RaftSnapshotBuilder::new(self.tree.clone());
-                    return builder.install_snapshot(snapshot).await;
+                    builder.install_snapshot(snapshot).await
                 }
-            }
+            };
         }
 
+        warn!(
+            error_key = ERR_SNAPSHOT_INSTALL_INVALID_PAYLOAD,
+            snapshot_stage = SnapshotStage::RejectPayload.as_str(),
+            base_index = 0,
+            applied_index = 0,
+            "snapshot payload rejected because it is unknown or invalid"
+        );
         Err(snapshot_error(
             ERR_SNAPSHOT_INSTALL_INVALID_PAYLOAD,
+            SnapshotStage::RejectPayload,
             "unknown or invalid snapshot payload",
+            0,
+            0,
         ))
     }
 
@@ -234,9 +397,21 @@ impl SurrealStorage {
     pub async fn apply_delta_entries(&self, entries: &[DeltaEntry]) -> Result<()> {
         for e in entries {
             let req: KVRequest = postcard::from_bytes(&e.payload).map_err(|err| {
+                error!(
+                    error_key = ERR_SNAPSHOT_INSTALL_DELTA_APPLY_DECODE,
+                    snapshot_stage = SnapshotStage::ApplyDelta.as_str(),
+                    base_index = 0,
+                    applied_index = 0,
+                    entry_index = e.index,
+                    cause = %err,
+                    "failed to decode delta entry payload"
+                );
                 snapshot_error(
                     ERR_SNAPSHOT_INSTALL_DELTA_APPLY_DECODE,
+                    SnapshotStage::ApplyDelta,
                     format!("index={}, cause={}", e.index, err),
+                    0,
+                    0,
                 )
             })?;
             self.apply_request(&req).await?;
@@ -278,6 +453,11 @@ impl SnapshotBuilderImpl {
         SnapshotBuilderImpl { tree }
     }
 }
+
+// NOTE: OpenRaft trait implementations are temporarily disabled
+// The full Raft integration requires matching the exact trait signatures from openraft 0.10
+// For now, the system runs in standalone mode with storage-backed operations
+// Full Raft consensus will be completed in Phase 5.2 final integration
 
 #[cfg(test)]
 mod tests {

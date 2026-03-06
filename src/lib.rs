@@ -50,6 +50,7 @@
 
 pub mod error;
 pub mod merge;
+pub mod metrics;
 pub mod network;
 pub mod raft_adapter;
 pub mod snapshot;
@@ -59,6 +60,14 @@ pub mod types;
 
 pub mod proto;
 
+// Phase 5: HTTP API 与配置管理
+pub mod api;
+pub mod config;
+
+// Phase 5.2: Raft Node 与应用状态
+pub mod app;
+pub mod shutdown;
+
 // Re-export commonly used types
 pub use error::{RaftError, Result};
 pub use raft_adapter::RaftConfig;
@@ -66,6 +75,11 @@ pub use types::{
     DeltaEntry, DeltaMetadata, KVRequest, KVResponse, NodeId, RaftTypeConfig, SnapshotData,
     SnapshotFormat,
 };
+
+// Phase 5 exports
+pub use app::RaftNode;
+pub use config::Config;
+pub use shutdown::ShutdownSignal;
 
 /// Library version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

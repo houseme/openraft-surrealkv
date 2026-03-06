@@ -28,8 +28,8 @@ pub mod restore;
 pub use checkpoint::CheckpointBuilder;
 pub use compression::SnapshotCompressor;
 pub use consistency::{
-    parse_sequence_from_checkpoint_manifest, resolve_sequence_number,
     PersistedKeySequenceNumberReader, SequenceNumberReader,
+    parse_sequence_from_checkpoint_manifest, resolve_sequence_number,
 };
 pub use delta::DeltaSnapshotCodec;
 pub use metadata::CheckpointMetadata;

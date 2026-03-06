@@ -1,0 +1,31 @@
+groups:
+  - name: openraft-surrealkv
+    interval: 30s
+    rules:
+      - alert: OpenRaftNodeNotReady
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "OpenRaft node is down"
+          description: "Prometheus target is unavailable for more than 1 minute"
+
+      - alert: OpenRaftHighHttpErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "HTTP 5xx ratio is above 5% over the last 5 minutes"
+
+      - alert: OpenRaftMergeFailures
+        expr: increase(raft_snapshot_merge_failed_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Snapshot merge failures detected"
+          description: "At least one merge failure occurred in the last 15 minutes"
+

@@ -1,0 +1,61 @@
+# OpenRaft-SurrealKV 配置文件示例
+
+[node]
+# 节点唯一标识符（必须 > 0）
+node_id = 1
+
+# gRPC 监听地址（格式：host:port）
+listen_addr = "127.0.0.1:50051"
+
+# 数据存储目录
+data_dir = "./data/node_1"
+
+[http]
+# 是否启用 HTTP REST API
+enabled = true
+
+# HTTP 监听端口
+port = 8080
+
+[raft]
+# 心跳间隔（毫秒）- Leader 向 Follower 发送心跳的频率
+heartbeat_interval_ms = 500
+
+# 选举超时（毫秒）- Follower 等待心跳的超时时间
+# 建议：election_timeout = 5-10 * heartbeat_interval
+election_timeout_ms = 3000
+
+# 单次 AppendEntries 最大日志条目数
+max_payload_entries = 300
+
+[snapshot]
+# Checkpoint 创建间隔（秒）- 定期全量快照
+checkpoint_interval_secs = 3600
+
+# Delta 链最大长度 - 超过此值触发合并
+max_delta_chain = 5
+
+# Delta 累计最大字节数（MB）- 超过此值触发合并
+max_delta_bytes_mb = 300
+
+[storage]
+# 是否启用 zstd 压缩
+enable_compression = true
+
+# 刷新间隔（毫秒）- SurrealKV 后台刷新频率
+flush_interval_ms = 1000
+
+[logging]
+# 日志级别：trace/debug/info/warn/error
+level = "info"
+
+# 日志格式：text/json
+format = "text"
+
+[metrics]
+# 是否启用 Prometheus 指标导出
+enabled = true
+
+# 指标监听地址（格式：host:port）
+listen_addr = "0.0.0.0:9090"
+

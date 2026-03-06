@@ -6,10 +6,10 @@ use openraft::raft::{
 };
 use openraft::storage::SnapshotMeta;
 use openraft::{Snapshot, Vote};
-use openraft_surrealkv::network::server::{
-    start_server, start_server_with_shutdown, RaftServiceHandler, ServerConfig,
-};
 use openraft_surrealkv::network::GrpcRaftNetworkFactory;
+use openraft_surrealkv::network::server::{
+    RaftServiceHandler, ServerConfig, start_server, start_server_with_shutdown,
+};
 use openraft_surrealkv::types::RaftTypeConfig;
 use std::collections::HashMap;
 use std::io::Cursor;

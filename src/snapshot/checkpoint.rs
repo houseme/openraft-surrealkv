@@ -5,8 +5,8 @@
 //! no data is actually copied.
 
 use super::consistency::{
-    resolve_sequence_number, write_sequence_number_dual, PersistedKeySequenceNumberReader,
-    PersistedKeySequenceNumberWriter,
+    PersistedKeySequenceNumberReader, PersistedKeySequenceNumberWriter, resolve_sequence_number,
+    write_sequence_number_dual,
 };
 use super::metadata::CheckpointMetadata;
 use crate::error::{Error, Result};

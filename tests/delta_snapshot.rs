@@ -1,5 +1,5 @@
 use openraft_surrealkv::snapshot::{
-    decode_delta_entries_from_payload, decode_snapshot_payload, DecodedSnapshotPayload,
+    DecodedSnapshotPayload, decode_delta_entries_from_payload, decode_snapshot_payload,
 };
 use openraft_surrealkv::storage::SurrealStorage;
 use openraft_surrealkv::types::{KVRequest, SnapshotFormat};

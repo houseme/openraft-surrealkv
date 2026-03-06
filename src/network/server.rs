@@ -12,13 +12,13 @@ use openraft::raft::{
     AppendEntriesRequest, AppendEntriesResponse, InstallSnapshotRequest, InstallSnapshotResponse,
     VoteRequest, VoteResponse,
 };
-use std::future::{pending, Future};
+use std::future::{Future, pending};
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::{debug, error};
 
 use crate::proto::raft::raft_service_server::RaftServiceServer;
-use crate::proto::raft::{raft_service_server::RaftService, RaftMessage};
+use crate::proto::raft::{RaftMessage, raft_service_server::RaftService};
 
 /// Trait for handling Raft RPCs.
 #[async_trait::async_trait]

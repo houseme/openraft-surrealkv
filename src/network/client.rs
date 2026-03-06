@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 use tonic::transport::Channel;
 use tracing::{debug, info, warn};
 
-use crate::proto::raft::{raft_service_client::RaftServiceClient, RaftMessage};
+use crate::proto::raft::{RaftMessage, raft_service_client::RaftServiceClient};
 
 /// Runtime gRPC client configuration.
 #[derive(Debug, Clone)]

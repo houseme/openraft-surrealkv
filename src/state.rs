@@ -93,6 +93,8 @@ pub struct DeltaInfo {
     pub size_bytes: u64,
     /// Timestamp of delta creation
     pub created_at: u64,
+    /// Optional persisted file path for cleanup.
+    pub file_path: Option<String>,
 }
 
 impl DeltaInfo {
@@ -102,7 +104,92 @@ impl DeltaInfo {
             end_index: end,
             size_bytes: size,
             created_at: timestamp,
+            file_path: None,
         }
+    }
+
+    pub fn with_file_path(mut self, file_path: String) -> Self {
+        self.file_path = Some(file_path);
+        self
+    }
+}
+
+/// Merge progress state persisted to avoid duplicate/re-entrant execution.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MergeProgressState {
+    pub in_progress: bool,
+    pub trigger_reason: Option<String>,
+    pub attempt: u8,
+    pub max_retries: u8,
+    pub started_at: u64,
+    pub updated_at: u64,
+    pub last_error: Option<String>,
+}
+
+impl MergeProgressState {
+    pub fn new() -> Self {
+        Self {
+            in_progress: false,
+            trigger_reason: None,
+            attempt: 0,
+            max_retries: 0,
+            started_at: 0,
+            updated_at: 0,
+            last_error: None,
+        }
+    }
+
+    pub fn started(trigger_reason: String, attempt: u8, max_retries: u8, now: u64) -> Self {
+        Self {
+            in_progress: true,
+            trigger_reason: Some(trigger_reason),
+            attempt,
+            max_retries,
+            started_at: now,
+            updated_at: now,
+            last_error: None,
+        }
+    }
+
+    pub fn succeeded(
+        trigger_reason: String,
+        attempt: u8,
+        max_retries: u8,
+        started_at: u64,
+    ) -> Self {
+        Self {
+            in_progress: false,
+            trigger_reason: Some(trigger_reason),
+            attempt,
+            max_retries,
+            started_at,
+            updated_at: started_at,
+            last_error: None,
+        }
+    }
+
+    pub fn failed(
+        trigger_reason: String,
+        attempt: u8,
+        max_retries: u8,
+        started_at: u64,
+        last_error: String,
+    ) -> Self {
+        Self {
+            in_progress: false,
+            trigger_reason: Some(trigger_reason),
+            attempt,
+            max_retries,
+            started_at,
+            updated_at: started_at,
+            last_error: Some(last_error),
+        }
+    }
+}
+
+impl Default for MergeProgressState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -144,6 +231,7 @@ pub struct MetadataManager {
     voting_state: Arc<RwLock<VotingState>>,
     applied_state: Arc<RwLock<AppliedState>>,
     snapshot_state: Arc<RwLock<SnapshotMetaState>>,
+    merge_progress_state: Arc<RwLock<MergeProgressState>>,
 }
 
 impl MetadataManager {
@@ -154,6 +242,7 @@ impl MetadataManager {
             voting_state: Arc::new(RwLock::new(VotingState::new())),
             applied_state: Arc::new(RwLock::new(AppliedState::new())),
             snapshot_state: Arc::new(RwLock::new(SnapshotMetaState::new())),
+            merge_progress_state: Arc::new(RwLock::new(MergeProgressState::new())),
         }
     }
 
@@ -178,6 +267,12 @@ impl MetadataManager {
         if let Some(bytes) = txn.get(b"raft_snapshot_meta")? {
             let state: SnapshotMetaState = postcard::from_bytes(&bytes)?;
             *self.snapshot_state.write().await = state;
+        }
+
+        // Load merge progress state
+        if let Some(bytes) = txn.get(b"raft_merge_progress")? {
+            let state: MergeProgressState = postcard::from_bytes(&bytes)?;
+            *self.merge_progress_state.write().await = state;
         }
 
         Ok(())
@@ -227,6 +322,40 @@ impl MetadataManager {
     pub async fn get_snapshot_state(&self) -> SnapshotMetaState {
         self.snapshot_state.read().await.clone()
     }
+
+    /// Save merge progress state.
+    pub async fn save_merge_progress_state(&self, state: MergeProgressState) -> Result<()> {
+        let bytes = postcard::to_stdvec(&state)?;
+        let mut txn = self.tree.begin()?;
+        txn.set(b"raft_merge_progress", &bytes)?;
+        txn.commit().await?;
+        *self.merge_progress_state.write().await = state;
+        Ok(())
+    }
+
+    /// Get current merge progress state.
+    pub async fn get_merge_progress_state(&self) -> MergeProgressState {
+        self.merge_progress_state.read().await.clone()
+    }
+
+    /// Atomically save snapshot and merge progress states in one transaction.
+    pub async fn save_snapshot_and_merge_state(
+        &self,
+        snapshot_state: SnapshotMetaState,
+        merge_state: MergeProgressState,
+    ) -> Result<()> {
+        let snapshot_bytes = postcard::to_stdvec(&snapshot_state)?;
+        let merge_bytes = postcard::to_stdvec(&merge_state)?;
+
+        let mut txn = self.tree.begin()?;
+        txn.set(b"raft_snapshot_meta", &snapshot_bytes)?;
+        txn.set(b"raft_merge_progress", &merge_bytes)?;
+        txn.commit().await?;
+
+        *self.snapshot_state.write().await = snapshot_state;
+        *self.merge_progress_state.write().await = merge_state;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -258,11 +387,22 @@ mod tests {
 
     #[test]
     fn test_delta_info_new() {
-        let info = DeltaInfo::new(100, 150, 5000, 1234567890);
+        let info =
+            DeltaInfo::new(100, 150, 5000, 1234567890).with_file_path("/tmp/delta.zst".to_string());
         assert_eq!(info.start_index, 100);
         assert_eq!(info.end_index, 150);
         assert_eq!(info.size_bytes, 5000);
         assert_eq!(info.created_at, 1234567890);
+        assert_eq!(info.file_path.as_deref(), Some("/tmp/delta.zst"));
+    }
+
+    #[test]
+    fn test_merge_progress_state_new() {
+        let state = MergeProgressState::new();
+        assert!(!state.in_progress);
+        assert_eq!(state.attempt, 0);
+        assert_eq!(state.max_retries, 0);
+        assert_eq!(state.last_error, None);
     }
 
     #[test]
