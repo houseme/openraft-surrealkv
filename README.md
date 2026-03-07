@@ -13,6 +13,11 @@ A distributed key-value project built with `OpenRaft 0.10.0-alpha.15` and `Surre
 - Config-driven multi-node bootstrap is available.
 - 3-node election and replication integration tests are available behind a feature flag for CI stability.
 
+## Documentation
+
+- English Usage Guide: `docs/USAGE_GUIDE.md`
+- 中文使用指南：`docs/USAGE_GUIDE_CN.md`
+
 ## Key Layout
 
 ```text
