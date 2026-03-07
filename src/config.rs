@@ -172,6 +172,10 @@ pub struct CliArgs {
     /// Define the log level override.
     #[arg(long, env = "LOG_LEVEL")]
     pub log_level: Option<String>,
+
+    /// Print version information and exit.
+    #[arg(short = 'v', long)]
+    pub version: bool,
 }
 
 impl Config {
@@ -180,6 +184,11 @@ impl Config {
     /// Precedence: CLI arguments > environment variables > config file > defaults.
     pub fn load() -> anyhow::Result<Self> {
         let args = CliArgs::parse();
+
+        if args.version {
+            println!("openraft-surrealkv {}", crate::VERSION);
+            std::process::exit(0);
+        }
 
         // 1. Load config file or fall back to defaults.
         let mut config = if let Some(config_path) = &args.config {

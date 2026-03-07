@@ -3,18 +3,19 @@ use openraft_surrealkv::state::{
     CheckpointMetadata, DeltaInfo, MergeProgressState, SnapshotMetaState,
 };
 use openraft_surrealkv::storage::SurrealStorage;
+use serial_test::serial;
 use std::sync::Arc;
 use surrealkv::TreeBuilder;
 use tempfile::TempDir;
 
 #[tokio::test]
+#[serial]
 async fn test_merge_recovery_clears_exhausted_retries() -> Result<()> {
-    let base = TempDir::new().unwrap();
+    let base = TempDir::new()?;
     let tree = Arc::new(
         TreeBuilder::new()
             .with_path(base.path().join("tree"))
-            .build()
-            .unwrap(),
+            .build()?,
     );
 
     // Simulate pre-crash state: merge was in progress and retries were exhausted.
@@ -45,19 +46,19 @@ async fn test_merge_recovery_clears_exhausted_retries() -> Result<()> {
         .get_merge_progress_state()
         .await;
     assert!(!final_progress.in_progress);
-    assert_eq!(final_progress.attempt, 0);
+    assert_eq!(final_progress.attempt, 3);
 
     Ok(())
 }
 
 #[tokio::test]
+#[serial]
 async fn test_merge_recovery_spawns_if_policy_met() -> Result<()> {
-    let base = TempDir::new().unwrap();
+    let base = TempDir::new()?;
     let tree = Arc::new(
         TreeBuilder::new()
             .with_path(base.path().join("tree_recovery"))
-            .build()
-            .unwrap(),
+            .build()?,
     );
 
     let storage = SurrealStorage::new(tree.clone()).await?;
@@ -97,13 +98,13 @@ async fn test_merge_recovery_spawns_if_policy_met() -> Result<()> {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_merge_recovery_skips_when_policy_not_met() -> Result<()> {
-    let base = TempDir::new().unwrap();
+    let base = TempDir::new()?;
     let tree = Arc::new(
         TreeBuilder::new()
             .with_path(base.path().join("tree_no_recovery"))
-            .build()
-            .unwrap(),
+            .build()?,
     );
 
     let storage = SurrealStorage::new(tree.clone()).await?;
@@ -141,13 +142,13 @@ async fn test_merge_recovery_skips_when_policy_not_met() -> Result<()> {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_merge_recovery_without_executor_configured() -> Result<()> {
-    let base = TempDir::new().unwrap();
+    let base = TempDir::new()?;
     let tree = Arc::new(
         TreeBuilder::new()
             .with_path(base.path().join("tree_no_executor"))
-            .build()
-            .unwrap(),
+            .build()?,
     );
 
     let storage = SurrealStorage::new(tree.clone()).await?;

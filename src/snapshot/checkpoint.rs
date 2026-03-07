@@ -176,6 +176,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial_test::serial]
     async fn test_checkpoint_create_with_tree() {
         let temp_dir = TempDir::new().unwrap();
         let tree = Arc::new(

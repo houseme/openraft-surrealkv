@@ -142,66 +142,66 @@ jobs:
       - name: Run cargo test
         run: cargo test --all-features
 
-  build-and-push:
-    name: Docker Build and Push
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    needs:
-      - check
-      - rust_fmt_check
-      - clippy_check
-      - strict_snapshot
-      - test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          version: "33.1"
-          repo-token: ${{ inputs.github-token }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: docker/Dockerfile.multi
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  #  build-and-push:
+  #    name: Docker Build and Push
+  #    if: github.ref == 'refs/heads/main'
+  #    runs-on: ubuntu-latest
+  #    needs:
+  #      - check
+  #      - rust_fmt_check
+  #      - clippy_check
+  #      - strict_snapshot
+  #      - test
+  #    steps:
+  #      - name: Checkout code
+  #        uses: actions/checkout@v6
+  #      - name: Install protoc
+  #        uses: arduino/setup-protoc@v3
+  #        with:
+  #          version: "33.1"
+  #          repo-token: ${{ inputs.github-token }}
+  #      - name: Set up QEMU
+  #        uses: docker/setup-qemu-action@v4
+  #      - name: Set up Docker Buildx
+  #        uses: docker/setup-buildx-action@v4
+  #      - name: Login to GitHub Container Registry
+  #        uses: docker/login-action@v4
+  #        with:
+  #          registry: ghcr.io
+  #          username: ${{ github.repository_owner }}
+  #          password: ${{ secrets.GITHUB_TOKEN }}
+  #      - name: Build and push
+  #        uses: docker/build-push-action@v7
+  #        with:
+  #          context: .
+  #          file: docker/Dockerfile.multi
+  #          push: true
+  #          tags: |
+  #            ghcr.io/${{ github.repository }}:latest
+  #            ghcr.io/${{ github.repository }}:${{ github.sha }}
+  #          platforms: linux/amd64,linux/arm64
+  #          cache-from: type=gha
+  #          cache-to: type=gha,mode=max
 
-  release:
-    name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    needs:
-      - build-and-push
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          version: "33.1"
-          repo-token: ${{ inputs.github-token }}
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+  #  release:
+  #    name: GitHub Release
+  #    if: startsWith(github.ref, 'refs/tags/v')
+  #    runs-on: ubuntu-latest
+  #    needs:
+  #      - build-and-push
+  #    steps:
+  #      - uses: actions/checkout@v6
+  #      - name: Install protoc
+  #        uses: arduino/setup-protoc@v3
+  #        with:
+  #          version: "33.1"
+  #          repo-token: ${{ inputs.github-token }}
+  #      - name: Create Release
+  #        uses: softprops/action-gh-release@v2
+  #        with:
+  #          generate_release_notes: true
+  #          draft: false
+  #          prerelease: false
 
   publish_on_crates_io:
     name: Publish on crates.io
