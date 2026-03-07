@@ -791,28 +791,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 
 [[package]]
-name = "futures"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b147ee9d1f6d097cef9ce628cd2ee62288d963e16fb287bd9286455b241382d"
-dependencies = [
- "futures-channel",
- "futures-core",
- "futures-executor",
- "futures-io",
- "futures-sink",
- "futures-task",
- "futures-util",
-]
-
-[[package]]
 name = "futures-channel"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 dependencies = [
  "futures-core",
- "futures-sink",
 ]
 
 [[package]]
@@ -831,12 +815,6 @@ dependencies = [
  "futures-task",
  "futures-util",
 ]
-
-[[package]]
-name = "futures-io"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cecba35d7ad927e23624b22ad55235f2239cfa44fd10428eecbeba6d6a717718"
 
 [[package]]
 name = "futures-macro"
@@ -867,13 +845,9 @@ version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "389ca41296e6190b48053de0321d02a77f32f8a5d2461dd38762c0593805c6d6"
 dependencies = [
- "futures-channel",
  "futures-core",
- "futures-io",
  "futures-macro",
- "futures-sink",
  "futures-task",
- "memchr",
  "pin-project-lite",
  "slab",
 ]
@@ -1443,19 +1417,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "openraft-legacy"
-version = "0.10.0-alpha.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "448594b91d26a2a7427c1593e31c273fb7791e50b9a4ad147a6d444d57c4c1e6"
-dependencies = [
- "futures",
- "openraft",
- "openraft-macros",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "openraft-macros"
 version = "0.10.0-alpha.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1506,7 +1467,6 @@ dependencies = [
  "metrics",
  "metrics-exporter-prometheus",
  "openraft",
- "openraft-legacy",
  "postcard",
  "prost",
  "serde",
@@ -2564,7 +2524,6 @@ dependencies = [
  "signal-hook-registry",
  "socket2",
  "tokio-macros",
- "tracing",
  "windows-sys 0.61.2",
 ]
 

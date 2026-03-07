@@ -273,6 +273,37 @@ impl RaftSnapshotBuilder {
         Self { tree, build_cfg }
     }
 
+    // Build a single-node membership baseline from startup-injected identity.
+    fn build_local_membership(&self) -> Result<openraft::Membership<RaftTypeConfig>> {
+        let mut voters = BTreeSet::new();
+        voters.insert(self.build_cfg.node_id);
+
+        let mut nodes = BTreeMap::new();
+        nodes.insert(
+            self.build_cfg.node_id,
+            openraft::BasicNode::new(&self.build_cfg.node_addr),
+        );
+
+        openraft::Membership::new(vec![voters], nodes)
+            .map_err(|e| Error::Snapshot(format!("membership build failed: {}", e)))
+    }
+
+    fn build_snapshot_meta(
+        &self,
+        applied_index: u64,
+        snapshot_id: String,
+    ) -> Result<openraft::SnapshotMeta<RaftTypeConfig>> {
+        let membership = self.build_local_membership()?;
+        Ok(openraft::SnapshotMeta::<RaftTypeConfig> {
+            last_log_id: Some(openraft::LogId::<RaftTypeConfig>::new_term_index(
+                self.build_cfg.current_term,
+                applied_index,
+            )),
+            snapshot_id,
+            last_membership: openraft::StoredMembership::new(None, membership),
+        })
+    }
+
     /// Build snapshot with automatic full/delta selection.
     pub async fn build_snapshot_with_delta(
         &mut self,
@@ -321,23 +352,8 @@ impl RaftSnapshotBuilder {
                 .map_err(|e| Error::Snapshot(format!("encode delta envelope failed: {}", e)))?;
 
             // Keep membership baseline aligned with startup-injected node identity.
-            let mut voters = BTreeSet::new();
-            voters.insert(self.build_cfg.node_id);
-            let mut nodes = BTreeMap::new();
-            nodes.insert(
-                self.build_cfg.node_id,
-                openraft::BasicNode::new(&self.build_cfg.node_addr),
-            );
-            let membership = openraft::Membership::new(vec![voters], nodes)
-                .map_err(|e| Error::Snapshot(format!("membership build failed: {}", e)))?;
-            let snapshot_meta = openraft::SnapshotMeta::<RaftTypeConfig> {
-                last_log_id: Some(openraft::LogId::<RaftTypeConfig>::new_term_index(
-                    self.build_cfg.current_term,
-                    applied_index,
-                )),
-                snapshot_id: format!("delta-{}-{}", applied_index, now),
-                last_membership: openraft::StoredMembership::new(None, membership),
-            };
+            let snapshot_meta = self
+                .build_snapshot_meta(applied_index, format!("delta-{}-{}", applied_index, now))?;
 
             return Ok(Snapshot {
                 meta: snapshot_meta,
@@ -385,23 +401,10 @@ impl RaftSnapshotBuilder {
             .map_err(|e| Error::Snapshot(format!("encode full envelope failed: {}", e)))?;
 
         // Keep membership baseline aligned with startup-injected node identity.
-        let mut voters = BTreeSet::new();
-        voters.insert(self.build_cfg.node_id);
-        let mut nodes = BTreeMap::new();
-        nodes.insert(
-            self.build_cfg.node_id,
-            openraft::BasicNode::new(&self.build_cfg.node_addr),
-        );
-        let membership = openraft::Membership::new(vec![voters], nodes)
-            .map_err(|e| Error::Snapshot(format!("membership build failed: {}", e)))?;
-        let snapshot_meta = openraft::SnapshotMeta::<RaftTypeConfig> {
-            last_log_id: Some(openraft::LogId::<RaftTypeConfig>::new_term_index(
-                self.build_cfg.current_term,
-                applied_index,
-            )),
-            last_membership: openraft::StoredMembership::new(None, membership),
-            snapshot_id: format!("full-{}-{}", applied_index, timestamp),
-        };
+        let snapshot_meta = self.build_snapshot_meta(
+            applied_index,
+            format!("full-{}-{}", applied_index, timestamp),
+        )?;
 
         Ok(Snapshot {
             meta: snapshot_meta,
