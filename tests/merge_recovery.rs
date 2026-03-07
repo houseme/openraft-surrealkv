@@ -17,7 +17,7 @@ async fn test_merge_recovery_clears_exhausted_retries() -> Result<()> {
             .unwrap(),
     );
 
-    // 模拟崩溃前状态：合并进行中，已达最大重试
+    // Simulate pre-crash state: merge was in progress and retries were exhausted.
     let storage = SurrealStorage::new(tree.clone()).await?;
     let progress = MergeProgressState::failed(
         "chain_too_long".to_string(),
@@ -31,15 +31,15 @@ async fn test_merge_recovery_clears_exhausted_retries() -> Result<()> {
         .save_merge_progress_state(progress)
         .await?;
 
-    // 重新创建 storage，启用合并策略
+    // Recreate storage with merge policy enabled.
     let storage_recovered = SurrealStorage::new(tree)
         .await?
         .with_default_merge("test_node");
 
-    // 执行恢复
+    // Execute recovery flow.
     storage_recovered.recover_merge_state().await?;
 
-    // 验证状态被清空
+    // Verify progress state is cleared after exhausted retries.
     let final_progress = storage_recovered
         .metadata()
         .get_merge_progress_state()
@@ -62,7 +62,7 @@ async fn test_merge_recovery_spawns_if_policy_met() -> Result<()> {
 
     let storage = SurrealStorage::new(tree.clone()).await?;
 
-    // 设置满足合并策略的快照状态
+    // Prepare snapshot state that satisfies merge policy thresholds.
     let mut snapshot_state = SnapshotMetaState::new();
     snapshot_state.last_checkpoint = Some(CheckpointMetadata::new(10, 2, 1, 100));
     for i in 0..5 {
@@ -76,23 +76,23 @@ async fn test_merge_recovery_spawns_if_policy_met() -> Result<()> {
         .save_snapshot_state(snapshot_state)
         .await?;
 
-    // 模拟崩溃前进行中的合并（未达最大重试）
+    // Simulate pre-crash in-progress merge (retries not yet exhausted).
     let progress = MergeProgressState::started("chain_too_long".to_string(), 1, 3, 100);
     storage
         .metadata()
         .save_merge_progress_state(progress)
         .await?;
 
-    // 重新创建 storage 并启用合并
+    // Recreate storage and enable merge executor.
     let storage_recovered = SurrealStorage::new(tree)
         .await?
         .with_default_merge("test_node");
 
-    // 执行恢复
+    // Execute recovery flow.
     storage_recovered.recover_merge_state().await?;
 
-    // 验证：由于策略满足，应该已重新启动合并
-    // （此测试不等待合并完成，仅验证恢复逻辑不报错）
+    // Policy is satisfied, so recovery should re-trigger merge scheduling.
+    // This test only verifies recovery path success, not merge completion.
     Ok(())
 }
 
@@ -108,29 +108,29 @@ async fn test_merge_recovery_skips_when_policy_not_met() -> Result<()> {
 
     let storage = SurrealStorage::new(tree.clone()).await?;
 
-    // 设置不满足合并策略的快照状态
+    // Prepare snapshot state that does not satisfy merge policy thresholds.
     let snapshot_state = SnapshotMetaState::new();
     storage
         .metadata()
         .save_snapshot_state(snapshot_state)
         .await?;
 
-    // 模拟崩溃前进行中的合并
+    // Simulate pre-crash in-progress merge.
     let progress = MergeProgressState::started("time_window_expired".to_string(), 1, 3, 100);
     storage
         .metadata()
         .save_merge_progress_state(progress)
         .await?;
 
-    // 重新创建 storage 并启用合并
+    // Recreate storage and enable merge executor.
     let storage_recovered = SurrealStorage::new(tree)
         .await?
         .with_default_merge("test_node");
 
-    // 执行恢复
+    // Execute recovery flow.
     storage_recovered.recover_merge_state().await?;
 
-    // 验证：策略不满足，状态应被清除
+    // Policy is not satisfied, so in-progress state should be cleared.
     let final_progress = storage_recovered
         .metadata()
         .get_merge_progress_state()
@@ -152,17 +152,17 @@ async fn test_merge_recovery_without_executor_configured() -> Result<()> {
 
     let storage = SurrealStorage::new(tree.clone()).await?;
 
-    // 模拟崩溃前进行中的合并
+    // Simulate pre-crash in-progress merge.
     let progress = MergeProgressState::started("chain_too_long".to_string(), 1, 3, 100);
     storage
         .metadata()
         .save_merge_progress_state(progress)
         .await?;
 
-    // 重新创建 storage，但不启用合并策略
+    // Recreate storage without enabling merge executor.
     let storage_recovered = SurrealStorage::new(tree).await?;
 
-    // 执行恢复（无 executor，应记录警告但不报错）
+    // Execute recovery: should warn but not fail when executor is unavailable.
     storage_recovered.recover_merge_state().await?;
 
     Ok(())

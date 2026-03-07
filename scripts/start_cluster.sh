@@ -1,20 +1,20 @@
 #!/bin/bash
-# 启动 3 节点本地集群
+# Start a local 3-node OpenRaft-SurrealKV cluster for manual testing.
 
 set -e
 
 echo "🚀 Starting OpenRaft-SurrealKV 3-node cluster..."
 
-# 清理旧数据（可选）
+# Optional cleanup: remove old node data when invoked as `./scripts/start_cluster.sh clean`.
 if [ "$1" = "clean" ]; then
     echo "🧹 Cleaning old data..."
     rm -rf data/node_*
 fi
 
-# 创建数据目录
+# Ensure per-node data directories exist.
 mkdir -p data/node_1 data/node_2 data/node_3
 
-# 节点 1
+# Node 1 process.
 echo "📦 Starting Node 1 (port 50051, HTTP 8080)..."
 NODE_ID=1 \
 LISTEN_ADDR=127.0.0.1:50051 \
@@ -25,7 +25,7 @@ cargo run --release &
 
 sleep 2
 
-# 节点 2
+# Node 2 process.
 echo "📦 Starting Node 2 (port 50052, HTTP 8081)..."
 NODE_ID=2 \
 LISTEN_ADDR=127.0.0.1:50052 \
@@ -36,7 +36,7 @@ cargo run --release &
 
 sleep 2
 
-# 节点 3
+# Node 3 process.
 echo "📦 Starting Node 3 (port 50053, HTTP 8082)..."
 NODE_ID=3 \
 LISTEN_ADDR=127.0.0.1:50053 \
@@ -70,5 +70,5 @@ echo "  curl http://localhost:9090/metrics"
 echo ""
 echo "Press Ctrl+C to stop all nodes"
 
-# 等待中断信号
+# Wait until interrupted so child node processes keep running.
 wait

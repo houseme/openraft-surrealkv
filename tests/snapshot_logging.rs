@@ -77,8 +77,9 @@ async fn test_logging_base_mismatch_contains_structured_fields() {
     assert!(err.to_string().contains("SNAPSHOT_INSTALL_BASE_MISMATCH"));
     assert!(err.to_string().contains("expected=0, got=1"));
 
-    // `traced_test` 在集成测试场景下对外部 crate 字段日志捕获不稳定，
-    // 这里以错误键语义和探针日志作为黑盒回归信号。
+    // In integration-style test runs, `traced_test` may not reliably capture
+    // structured fields emitted by external crates.
+    // Use the error key semantics and probe logs as black-box regression signals.
     assert!(logs_contain("probe_log_capture_base"));
 }
 

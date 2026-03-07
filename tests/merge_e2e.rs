@@ -1,7 +1,7 @@
 use openraft_surrealkv::error::Result;
 use openraft_surrealkv::merge::{
-    CheckpointMergeBackend, DeltaMergePolicy, MERGE_ERR_INJECTED_FAILURE, MergeBackend,
-    MergeCleanup, MergeCleanupConfig, MergeExecution, MergeExecutor,
+    CheckpointMergeBackend, DeltaMergePolicy, MergeBackend, MergeCleanup,
+    MergeCleanupConfig, MergeExecution, MergeExecutor, MERGE_ERR_INJECTED_FAILURE,
 };
 use openraft_surrealkv::metrics::MergeMetrics;
 use openraft_surrealkv::snapshot::DeltaSnapshotCodec;
@@ -26,12 +26,12 @@ async fn create_baseline_checkpoint(
     Ok(path.to_string_lossy().to_string())
 }
 
-/// 端到端测试：合并后的快照可被正确恢复
+/// End-to-end test: merged snapshots can be recovered correctly.
 #[tokio::test]
 async fn test_e2e_merge_and_restore() -> Result<()> {
     let base = TempDir::new().unwrap();
 
-    // 1. 创建初始 Tree 并写入数据
+    // 1) Create the initial tree and seed baseline data.
     let tree = Arc::new(
         TreeBuilder::new()
             .with_path(base.path().join("tree"))
@@ -39,13 +39,13 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
             .unwrap(),
     );
 
-    // 写入初始数据
+    // Seed baseline key/value data.
     let mut txn = tree.begin()?;
     txn.set(b"key1", b"value1")?;
     txn.set(b"key2", b"value2")?;
     txn.commit().await?;
 
-    // 2. 创建模拟的 delta entries
+    // 2) Build synthetic delta entries.
     let delta_entries = vec![
         DeltaEntry::new(
             1,
@@ -75,7 +75,7 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
         ),
     ];
 
-    // 3. 持久化 delta 到文件
+    // 3) Persist encoded delta payload to disk.
     let delta_dir = base.path().join("deltas");
     tokio::fs::create_dir_all(&delta_dir).await?;
     let delta_path = delta_dir.join("delta_100_103.bin");
@@ -83,7 +83,7 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
     let compressed = DeltaSnapshotCodec::encode_entries(&delta_entries)?;
     tokio::fs::write(&delta_path, &compressed).await?;
 
-    // 4. 构建 SnapshotMetaState
+    // 4) Build and persist SnapshotMetaState.
     let metadata_mgr = Arc::new(MetadataManager::new(tree.clone()));
     let baseline_cp =
         create_baseline_checkpoint(tree.clone(), base.path().join("baseline_cp")).await?;
@@ -100,13 +100,13 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
         .save_snapshot_state(snapshot_state.clone())
         .await?;
 
-    // 5. 执行合并
+    // 5) Execute merge.
     let backend = Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp")));
 
     let executor = MergeExecutor::new(
         metadata_mgr.clone(),
         DeltaMergePolicy {
-            max_chain_length: 1, // 立即触发
+            max_chain_length: 1, // Trigger immediately.
             max_delta_bytes: 1,
             checkpoint_interval_secs: 1,
         },
@@ -122,12 +122,12 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
     assert!(result.merged);
     assert_eq!(result.retries, 1);
 
-    // 6. 验证合并后状态
+    // 6) Verify post-merge state.
     let final_state = metadata_mgr.get_snapshot_state().await;
     assert!(final_state.delta_chain.is_empty());
     assert_eq!(final_state.total_delta_bytes, 0);
 
-    // 7. 验证 checkpoint 已创建
+    // 7) Verify checkpoint directory was created.
     let checkpoint_dir = base.path().join("../checkpoints");
     if checkpoint_dir.exists() {
         tracing::info!("checkpoint directory exists, merge succeeded");
@@ -136,7 +136,7 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
     Ok(())
 }
 
-/// 测试：多次合并幂等性
+/// Verify idempotency when merge is attempted repeatedly.
 #[tokio::test]
 async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     let base = TempDir::new().unwrap();
@@ -151,7 +151,7 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     let baseline_cp =
         create_baseline_checkpoint(tree.clone(), base.path().join("baseline_cp")).await?;
 
-    // 设置满足合并条件的状态
+    // Prepare state that satisfies merge conditions.
     let mut state = SnapshotMetaState::new();
     state.last_checkpoint =
         Some(CheckpointMetadata::new(100, 1, 1, 1000).with_checkpoint_path(baseline_cp));
@@ -173,18 +173,18 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     )
     .with_backend(backend);
 
-    // 第一次合并
+    // First merge attempt.
     let handle1 = executor.spawn_if_needed().await?.unwrap();
     handle1.handle.await.unwrap()?;
 
-    // 第二次尝试合并（应该不触发）
+    // Second merge attempt should not spawn a new job.
     let handle2 = executor.spawn_if_needed().await?;
     assert!(handle2.is_none(), "second merge should not spawn");
 
     Ok(())
 }
 
-/// 测试：合并失败后恢复
+/// Verify merge recovery after an injected one-time backend failure.
 #[tokio::test]
 async fn test_e2e_merge_failure_recovery() -> Result<()> {
     use async_trait::async_trait;
@@ -206,7 +206,7 @@ async fn test_e2e_merge_failure_recovery() -> Result<()> {
                 )));
             }
 
-            // 第二次调用成功
+            // The second call succeeds.
             Ok(MergeExecution {
                 checkpoint_size_bytes: snapshot_state.total_delta_bytes,
                 checkpoint_path: Some("target/checkpoints/checkpoint_test".to_string()),
@@ -250,7 +250,7 @@ async fn test_e2e_merge_failure_recovery() -> Result<()> {
     let result = handle.handle.await.unwrap()?;
 
     assert!(result.merged);
-    assert_eq!(result.retries, 2); // 第一次失败，第二次成功
+    assert_eq!(result.retries, 2); // First call fails, second call succeeds.
 
     Ok(())
 }

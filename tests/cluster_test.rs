@@ -5,16 +5,16 @@ use std::sync::Arc;
 use surrealkv::TreeBuilder;
 use tempfile::TempDir;
 
-/// Phase 5.3 多节点集群验证测试
+/// Phase 5.3 multi-node cluster validation tests.
 ///
-/// 验证场景：
-/// 1. 3 节点集群启动
-/// 2. 基础的读写操作
-/// 3. 多节点存储可用性
+/// Covered scenarios:
+/// 1. Bring up isolated storage backends for three nodes
+/// 2. Verify basic write/read behavior on a single node
+/// 3. Verify storage isolation across nodes when replication is not wired in this test
 
 #[tokio::test]
 async fn test_3_node_cluster_basic() -> anyhow::Result<()> {
-    // 为每个节点创建独立的数据目录
+    // Create an isolated data directory for each node.
     let base1 = TempDir::new()?;
     let base2 = TempDir::new()?;
     let base3 = TempDir::new()?;
@@ -43,7 +43,7 @@ async fn test_3_node_cluster_basic() -> anyhow::Result<()> {
     );
     let _storage3 = Arc::new(SurrealStorage::new(tree3).await?);
 
-    // 写入测试数据到 Node 1
+    // Write test data into Node 1.
     tracing::info!("Writing to Node 1");
     for i in 0..10 {
         let key = format!("test_key_{}", i);
@@ -56,13 +56,13 @@ async fn test_3_node_cluster_basic() -> anyhow::Result<()> {
             .await?;
     }
 
-    // 验证 Node 1 可以读取
+    // Verify Node 1 can read its own writes.
     tracing::info!("Reading from Node 1");
     let val = storage1.read("test_key_0").await?;
     assert!(val.is_some());
     assert_eq!(val.unwrap(), b"test_value_0");
 
-    // 验证其他节点的存储独立性
+    // Verify other nodes remain isolated in this non-replicated setup.
     tracing::info!("Verifying independent storage");
     let val2 = storage2.read("test_key_0").await?;
     assert!(
@@ -73,7 +73,7 @@ async fn test_3_node_cluster_basic() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 测试多节点并发操作
+/// Verify concurrent write activity on independent node stores.
 #[tokio::test]
 async fn test_concurrent_node_operations() -> anyhow::Result<()> {
     let base1 = TempDir::new()?;
@@ -93,7 +93,7 @@ async fn test_concurrent_node_operations() -> anyhow::Result<()> {
     );
     let storage2 = Arc::new(SurrealStorage::new(tree2).await?);
 
-    // 并发写入
+    // Run concurrent write loops on two nodes.
     let s1_clone = storage1.clone();
     let s2_clone = storage2.clone();
 
@@ -130,7 +130,7 @@ async fn test_concurrent_node_operations() -> anyhow::Result<()> {
     handle1.await??;
     handle2.await??;
 
-    // 验证数据
+    // Verify both node-local datasets exist.
     let val1 = storage1.read("node1_key_0").await?;
     assert!(val1.is_some());
 
@@ -141,7 +141,7 @@ async fn test_concurrent_node_operations() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 测试配置加载多节点
+/// Verify per-node configuration values for a three-node deployment shape.
 #[tokio::test]
 async fn test_config_for_multiple_nodes() -> anyhow::Result<()> {
     // Node 1 config
