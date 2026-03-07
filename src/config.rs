@@ -1,5 +1,6 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
 /// OpenRaft-SurrealKV 分布式 KV 服务配置
@@ -8,6 +9,8 @@ pub struct Config {
     pub node: NodeConfig,
     pub http: HttpConfig,
     pub raft: RaftConfig,
+    #[serde(default)]
+    pub cluster: ClusterConfig,
     pub snapshot: SnapshotConfig,
     pub storage: StorageConfig,
     pub logging: LoggingConfig,
@@ -83,6 +86,23 @@ pub struct MetricsConfig {
     pub listen_addr: String,
 }
 
+/// 集群配置（多节点 Bootstrap/Join）
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ClusterConfig {
+    /// 当前节点是否执行 bootstrap 初始化
+    pub bootstrap: bool,
+    /// 已知集群节点（不包含本节点）
+    #[serde(default)]
+    pub peers: Vec<PeerConfig>,
+}
+
+/// 对端节点配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeerConfig {
+    pub node_id: u64,
+    pub addr: String,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -100,6 +120,7 @@ impl Default for Config {
                 election_timeout_ms: 3000,
                 max_payload_entries: 300,
             },
+            cluster: ClusterConfig::default(),
             snapshot: SnapshotConfig {
                 checkpoint_interval_secs: 3600,
                 max_delta_chain: 5,
@@ -207,7 +228,53 @@ impl Config {
             anyhow::bail!("HTTP port cannot be 0 when HTTP is enabled");
         }
 
+        let mut seen_node_ids = HashSet::new();
+        let mut seen_addrs = HashSet::new();
+        for p in &self.cluster.peers {
+            if p.node_id == 0 {
+                anyhow::bail!("cluster.peers.node_id must be greater than 0");
+            }
+            if p.addr.trim().is_empty() {
+                anyhow::bail!("cluster.peers.addr cannot be empty");
+            }
+            if p.node_id == self.node.node_id {
+                anyhow::bail!("cluster.peers must not include current node_id");
+            }
+            if p.addr == self.node.listen_addr {
+                anyhow::bail!("cluster.peers must not reuse current node listen_addr");
+            }
+            if !seen_node_ids.insert(p.node_id) {
+                anyhow::bail!("cluster.peers contains duplicate node_id: {}", p.node_id);
+            }
+            if !seen_addrs.insert(p.addr.clone()) {
+                anyhow::bail!("cluster.peers contains duplicate addr: {}", p.addr);
+            }
+        }
+
         Ok(())
+    }
+
+    /// 构建 OpenRaft 初始化 membership（包含本节点 + 配置 peers）。
+    pub fn cluster_members(&self) -> BTreeMap<u64, openraft::BasicNode> {
+        let mut out = BTreeMap::new();
+        out.insert(
+            self.node.node_id,
+            openraft::BasicNode::new(&self.node.listen_addr),
+        );
+        for p in &self.cluster.peers {
+            out.insert(p.node_id, openraft::BasicNode::new(&p.addr));
+        }
+        out
+    }
+
+    /// 构建 network resolver 地址映射（包含本节点 + peers）。
+    pub fn resolver_addresses(&self) -> HashMap<u64, String> {
+        let mut out = HashMap::new();
+        out.insert(self.node.node_id, self.node.listen_addr.clone());
+        for p in &self.cluster.peers {
+            out.insert(p.node_id, p.addr.clone());
+        }
+        out
     }
 
     /// 创建数据目录（如果不存在）
@@ -278,5 +345,97 @@ mod tests {
         let mut config = Config::default();
         config.http.enabled = false;
         assert!(config.preflight_check().is_ok());
+    }
+
+    #[test]
+    fn test_cluster_members_contains_self() {
+        let config = Config::default();
+        let members = config.cluster_members();
+        assert!(members.contains_key(&config.node.node_id));
+    }
+
+    #[test]
+    fn test_validate_cluster_duplicate_peer_id() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50053".to_string(),
+            },
+        ];
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_cluster_duplicate_peer_addr() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+            PeerConfig {
+                node_id: 3,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+        ];
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_cluster_peer_reuse_self_addr() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![PeerConfig {
+            node_id: 2,
+            addr: config.node.listen_addr.clone(),
+        }];
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_cluster_members_expected_count() {
+        let mut config = Config::default();
+        config.cluster.bootstrap = true;
+        config.cluster.peers = vec![
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+            PeerConfig {
+                node_id: 3,
+                addr: "127.0.0.1:50053".to_string(),
+            },
+        ];
+
+        let members = config.cluster_members();
+        assert_eq!(members.len(), 3);
+        assert!(members.contains_key(&1));
+        assert!(members.contains_key(&2));
+        assert!(members.contains_key(&3));
+    }
+
+    #[test]
+    fn test_resolver_addresses_mapping() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+            PeerConfig {
+                node_id: 3,
+                addr: "127.0.0.1:50053".to_string(),
+            },
+        ];
+
+        let addrs = config.resolver_addresses();
+        assert_eq!(addrs.len(), 3);
+        assert_eq!(addrs.get(&1).map(String::as_str), Some("127.0.0.1:50051"));
+        assert_eq!(addrs.get(&2).map(String::as_str), Some("127.0.0.1:50052"));
+        assert_eq!(addrs.get(&3).map(String::as_str), Some("127.0.0.1:50053"));
     }
 }

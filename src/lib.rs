@@ -56,6 +56,7 @@ pub mod raft_adapter;
 pub mod snapshot;
 pub mod state;
 pub mod storage;
+mod storage_raft_impl;
 pub mod types;
 
 pub mod proto;

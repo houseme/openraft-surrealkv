@@ -173,6 +173,6 @@ mod tests {
 
         // 执行合并（应成功但无实际操作）
         let size = backend.execute_merge(&state).await.unwrap();
-        assert!(size >= 0);
+        assert!(size > 0);
     }
 }

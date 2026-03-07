@@ -28,6 +28,19 @@ election_timeout_ms = 3000
 # 单次 AppendEntries 最大日志条目数
 max_payload_entries = 300
 
+[cluster]
+# 是否由当前节点执行 bootstrap 初始化（建议仅 1 个节点设为 true）
+bootstrap = true
+
+# 已知对端节点（不包含本节点）
+[[cluster.peers]]
+node_id = 2
+addr = "127.0.0.1:50052"
+
+[[cluster.peers]]
+node_id = 3
+addr = "127.0.0.1:50053"
+
 [snapshot]
 # Checkpoint 创建间隔（秒）- 定期全量快照
 checkpoint_interval_secs = 3600
@@ -58,4 +71,3 @@ enabled = true
 
 # 指标监听地址（格式：host:port）
 listen_addr = "0.0.0.0:9090"
-

@@ -4,6 +4,8 @@ use crate::config::Config;
 use crate::network::GrpcRaftNetworkFactory;
 use crate::storage::SurrealStorage;
 use crate::types::{KVRequest, KVResponse, RaftTypeConfig};
+use openraft::rt::WatchReceiver;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Raft 节点包装器（Phase 5.2）
@@ -16,18 +18,61 @@ pub struct RaftNode {
 
 impl RaftNode {
     /// 创建新的 Raft Node
-    /// NOTE: OpenRaft trait 实现正在进行中，当前使用 standalone 模式
-    /// 参考：docs/MULTI_NODE_RAFT_GUIDE.md
     pub async fn new(
         config: &Config,
         storage: Arc<SurrealStorage>,
-        _network_factory: Arc<GrpcRaftNetworkFactory>,
+        network_factory: Arc<GrpcRaftNetworkFactory>,
     ) -> anyhow::Result<Self> {
-        tracing::warn!(
-            node_id = config.node.node_id,
-            "Raft trait implementation in progress (see MULTI_NODE_RAFT_GUIDE.md), running in standalone mode"
-        );
-        Self::new_standalone(config, storage).await
+        let mut raft_cfg = openraft::Config {
+            cluster_name: "openraft-surrealkv".to_string(),
+            heartbeat_interval: config.raft.heartbeat_interval_ms,
+            election_timeout_min: config.raft.election_timeout_ms,
+            election_timeout_max: config
+                .raft
+                .election_timeout_ms
+                .saturating_add(config.raft.heartbeat_interval_ms.max(1)),
+            max_payload_entries: config.raft.max_payload_entries,
+            ..Default::default()
+        };
+        raft_cfg = raft_cfg
+            .validate()
+            .map_err(|e| anyhow::anyhow!("invalid openraft config: {}", e))?;
+
+        let raft = openraft::Raft::new(
+            config.node.node_id,
+            Arc::new(raft_cfg),
+            network_factory.as_ref().clone(),
+            storage.as_ref().clone(),
+            storage.as_ref().clone(),
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!("create raft node failed: {}", e))?;
+
+        Ok(RaftNode {
+            is_standalone: false,
+            node_id: config.node.node_id,
+            storage,
+            raft: Some(raft),
+        })
+    }
+
+    pub async fn initialize_cluster(
+        &self,
+        members: BTreeMap<u64, openraft::BasicNode>,
+    ) -> anyhow::Result<()> {
+        if members.is_empty() {
+            anyhow::bail!("raft initialize members cannot be empty");
+        }
+        if !members.contains_key(&self.node_id) {
+            anyhow::bail!("raft initialize members must include current node");
+        }
+
+        if let Some(raft) = &self.raft {
+            raft.initialize(members)
+                .await
+                .map_err(|e| anyhow::anyhow!("raft initialize failed: {}", e))?;
+        }
+        Ok(())
     }
 
     /// 创建单机模式（无 Raft，仅存储）
@@ -81,13 +126,39 @@ impl RaftNode {
             .map_err(|e| anyhow::anyhow!("client_write fallback failed: {}", e))
     }
 
+    pub fn raft_handle(&self) -> Option<openraft::Raft<RaftTypeConfig>> {
+        self.raft.clone()
+    }
+
+    pub fn is_real_raft(&self) -> bool {
+        self.raft.is_some() && !self.is_standalone
+    }
+
+    pub async fn shutdown(&self) -> anyhow::Result<()> {
+        if let Some(raft) = &self.raft {
+            raft.shutdown()
+                .await
+                .map_err(|e| anyhow::anyhow!("raft shutdown failed: {}", e))?;
+        }
+        Ok(())
+    }
+
     /// 获取当前任期
     pub async fn current_term(&self) -> u64 {
+        if let Some(raft) = &self.raft {
+            let metrics = raft.metrics();
+            return metrics.borrow_watched().current_term;
+        }
         0
     }
 
     /// 获取当前角色（Leader/Follower/Candidate）
     pub async fn current_role(&self) -> String {
+        if let Some(raft) = &self.raft {
+            let metrics = raft.metrics();
+            return format!("{:?}", metrics.borrow_watched().state);
+        }
+
         if self.is_standalone {
             "Standalone".to_string()
         } else {
@@ -153,6 +224,41 @@ mod tests {
             .await?;
 
         assert_eq!(storage.read("k").await?, Some(b"v".to_vec()));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_initialize_cluster_rejects_empty_members() -> anyhow::Result<()> {
+        let config = Config::default();
+        let tree = Arc::new(
+            surrealkv::TreeBuilder::new()
+                .with_path("target/test_init_cluster_empty".into())
+                .build()?,
+        );
+        let storage = Arc::new(SurrealStorage::new(tree).await?);
+        let node = RaftNode::new_standalone(&config, storage).await?;
+
+        let err = node.initialize_cluster(BTreeMap::new()).await.unwrap_err();
+        assert!(err.to_string().contains("cannot be empty"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_initialize_cluster_rejects_missing_self() -> anyhow::Result<()> {
+        let config = Config::default();
+        let tree = Arc::new(
+            surrealkv::TreeBuilder::new()
+                .with_path("target/test_init_cluster_missing_self".into())
+                .build()?,
+        );
+        let storage = Arc::new(SurrealStorage::new(tree).await?);
+        let node = RaftNode::new_standalone(&config, storage).await?;
+
+        let mut members = BTreeMap::new();
+        members.insert(2, openraft::BasicNode::new("127.0.0.1:50052"));
+
+        let err = node.initialize_cluster(members).await.unwrap_err();
+        assert!(err.to_string().contains("must include current node"));
         Ok(())
     }
 }

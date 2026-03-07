@@ -19,6 +19,7 @@ use crate::state::{
 use crate::types::{DeltaEntry, KVRequest, KVResponse, RaftTypeConfig, SnapshotFormat};
 use openraft::Snapshot;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use surrealkv::Tree;
 use tokio::sync::RwLock;
@@ -60,6 +61,11 @@ pub struct SurrealStorage {
     pub(crate) metadata: Arc<MetadataManager>,
     state_machine: Arc<RwLock<StateMachine>>,
     pub(crate) raft_logs: Arc<RwLock<BTreeMap<u64, LogEntry>>>,
+    // Generic OpenRaft log entries for consensus replication.
+    pub(crate) raft_entries: Arc<RwLock<BTreeMap<u64, openraft::Entry<RaftTypeConfig>>>>,
+    pub(crate) last_purged_log_id: Arc<RwLock<Option<openraft::LogId<RaftTypeConfig>>>>,
+    pub(crate) last_membership: Arc<RwLock<openraft::StoredMembership<RaftTypeConfig>>>,
+    pub(crate) current_snapshot: Arc<RwLock<Option<Snapshot<RaftTypeConfig>>>>,
     merge_executor: Option<Arc<MergeExecutor>>,
 }
 
@@ -67,6 +73,13 @@ pub struct SurrealStorage {
 #[derive(Debug, Default, Clone)]
 pub struct StateMachine {
     data: std::collections::HashMap<String, Vec<u8>>,
+}
+
+fn default_stored_membership() -> openraft::StoredMembership<RaftTypeConfig> {
+    let mut voters = BTreeSet::new();
+    voters.insert(1);
+    let membership = openraft::Membership::new_with_defaults(vec![voters], [1]);
+    openraft::StoredMembership::new(None, membership)
 }
 
 impl SurrealStorage {
@@ -80,6 +93,10 @@ impl SurrealStorage {
             metadata,
             state_machine: Arc::new(RwLock::new(StateMachine::default())),
             raft_logs: Arc::new(RwLock::new(BTreeMap::new())),
+            raft_entries: Arc::new(RwLock::new(BTreeMap::new())),
+            last_purged_log_id: Arc::new(RwLock::new(None)),
+            last_membership: Arc::new(RwLock::new(default_stored_membership())),
+            current_snapshot: Arc::new(RwLock::new(None)),
             merge_executor: None,
         })
     }
