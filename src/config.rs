@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
-/// OpenRaft-SurrealKV 分布式 KV 服务配置
+/// Configuration for the OpenRaft-SurrealKV distributed KV service.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub node: NodeConfig,
@@ -17,88 +17,88 @@ pub struct Config {
     pub metrics: MetricsConfig,
 }
 
-/// 节点配置
+/// Node configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeConfig {
-    /// 节点 ID（1, 2, 3, ...）
+    /// Node ID (1, 2, 3, ...)
     pub node_id: u64,
-    /// gRPC 监听地址
+    /// gRPC listen address.
     pub listen_addr: String,
-    /// 数据目录
+    /// Data directory.
     pub data_dir: PathBuf,
 }
 
-/// HTTP API 配置
+/// HTTP API configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpConfig {
-    /// 是否启用 HTTP API
+    /// Whether to enable the HTTP API.
     pub enabled: bool,
-    /// HTTP 监听端口
+    /// HTTP listen port.
     pub port: u16,
 }
 
-/// Raft 配置
+/// Raft configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RaftConfig {
-    /// 心跳间隔（毫秒）
+    /// Heartbeat interval (milliseconds).
     pub heartbeat_interval_ms: u64,
-    /// 选举超时（毫秒）
+    /// Election timeout (milliseconds).
     pub election_timeout_ms: u64,
-    /// 最大批量日志条目数
+    /// Maximum batched log entries per payload.
     pub max_payload_entries: u64,
 }
 
-/// 快照配置
+/// Snapshot configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotConfig {
-    /// Checkpoint 间隔（秒）
+    /// Checkpoint interval (seconds).
     pub checkpoint_interval_secs: u64,
-    /// Delta 链最大长度
+    /// Maximum delta chain length.
     pub max_delta_chain: usize,
-    /// Delta 累计最大字节数（MB）
+    /// Maximum cumulative delta bytes (MB).
     pub max_delta_bytes_mb: u64,
 }
 
-/// 存储配置
+/// Storage configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    /// 是否启用压缩
+    /// Whether to enable compression.
     pub enable_compression: bool,
-    /// 刷新间隔（毫秒）
+    /// Flush interval (milliseconds).
     pub flush_interval_ms: u64,
 }
 
-/// 日志配置
+/// Logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
-    /// 日志级别（trace/debug/info/warn/error）
+    /// Log level (`trace`/`debug`/`info`/`warn`/`error`).
     pub level: String,
-    /// 日志格式（json/text）
+    /// Log output format (`json`/`text`).
     pub format: String,
 }
 
-/// 指标配置
+/// Metrics configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsConfig {
-    /// 是否启用指标导出
+    /// Whether to enable metrics export.
     pub enabled: bool,
-    /// 指标监听地址
+    /// Metrics listen address.
     pub listen_addr: String,
 }
 
-/// 集群配置（多节点 Bootstrap/Join）
+/// Cluster configuration (multi-node bootstrap/join).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ClusterConfig {
-    /// 当前节点是否执行 bootstrap 初始化
+    /// Whether the current node performs bootstrap initialization.
     pub bootstrap: bool,
-    /// 期望 voter 数量（self + peers），用于防误配置
+    /// Expected voter count (self + peers), used to prevent misconfiguration.
     pub expected_voters: Option<usize>,
-    /// 已知集群节点（不包含本节点）
+    /// Known cluster peers (excluding the current node).
     #[serde(default)]
     pub peers: Vec<PeerConfig>,
 }
 
-/// 对端节点配置
+/// Peer node configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerConfig {
     pub node_id: u64,
@@ -144,44 +144,44 @@ impl Default for Config {
     }
 }
 
-/// 命令行参数
+/// Command-line arguments.
 #[derive(Debug, Clone, Parser)]
 #[command(name = "openraft-surrealkv")]
-#[command(about = "OpenRaft + SurrealKV 分布式 KV 服务", long_about = None)]
+#[command(about = "OpenRaft + SurrealKV distributed KV service", long_about = None)]
 pub struct CliArgs {
-    /// 配置文件路径
+    /// Configuration file path.
     #[arg(short, long, value_name = "FILE")]
     pub config: Option<PathBuf>,
 
-    /// 节点 ID（覆盖配置文件）
+    /// Node ID (overrides config file).
     #[arg(long, env = "NODE_ID")]
     pub node_id: Option<u64>,
 
-    /// 监听地址（覆盖配置文件）
+    /// Listen address (overrides config file).
     #[arg(long, env = "LISTEN_ADDR")]
     pub listen_addr: Option<String>,
 
-    /// 数据目录（覆盖配置文件）
+    /// Data directory (overrides config file).
     #[arg(long, env = "DATA_DIR")]
     pub data_dir: Option<PathBuf>,
 
-    /// HTTP 端口（覆盖配置文件）
+    /// HTTP port (overrides config file).
     #[arg(long, env = "HTTP_PORT")]
     pub http_port: Option<u16>,
 
-    /// 日志级别（覆盖配置文件）
+    /// Log level (overrides config file).
     #[arg(long, env = "LOG_LEVEL")]
     pub log_level: Option<String>,
 }
 
 impl Config {
-    /// 从命令行参数和配置文件加载配置
+    /// Load configuration from CLI arguments and config file.
     ///
-    /// 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值
+    /// Precedence: CLI arguments > environment variables > config file > defaults.
     pub fn load() -> anyhow::Result<Self> {
         let args = CliArgs::parse();
 
-        // 1. 加载配置文件或使用默认配置
+        // 1. Load config file or fall back to defaults.
         let mut config = if let Some(config_path) = &args.config {
             let content = std::fs::read_to_string(config_path)?;
             toml::from_str(&content)?
@@ -189,7 +189,7 @@ impl Config {
             Config::default()
         };
 
-        // 2. 命令行参数覆盖
+        // 2. Apply CLI overrides.
         if let Some(node_id) = args.node_id {
             config.node.node_id = node_id;
         }
@@ -206,13 +206,13 @@ impl Config {
             config.logging.level = log_level;
         }
 
-        // 3. 验证配置
+        // 3. Validate final config.
         config.validate()?;
 
         Ok(config)
     }
 
-    /// 验证配置合法性
+    /// Validate configuration values.
     fn validate(&self) -> anyhow::Result<()> {
         if self.node.node_id == 0 {
             anyhow::bail!("node_id must be greater than 0");
@@ -271,7 +271,7 @@ impl Config {
         Ok(())
     }
 
-    /// 构建 OpenRaft 初始化 membership（包含本节点 + 配置 peers）。
+    /// Build OpenRaft initial membership (self + configured peers).
     pub fn cluster_members(&self) -> BTreeMap<u64, openraft::BasicNode> {
         let mut out = BTreeMap::new();
         out.insert(
@@ -284,7 +284,7 @@ impl Config {
         out
     }
 
-    /// 构建 network resolver 地址映射（包含本节点 + peers）。
+    /// Build the address map for the network resolver (self + peers).
     pub fn resolver_addresses(&self) -> HashMap<u64, String> {
         let mut out = HashMap::new();
         out.insert(self.node.node_id, self.node.listen_addr.clone());
@@ -294,26 +294,26 @@ impl Config {
         out
     }
 
-    /// 创建数据目录（如果不存在）
+    /// Create the data directory if it does not exist.
     pub fn ensure_data_dir(&self) -> anyhow::Result<()> {
         std::fs::create_dir_all(&self.node.data_dir)?;
         Ok(())
     }
 
-    /// 启动前自检：目录可写、端口可绑定。
+    /// Startup preflight checks: writable directory and bindable ports.
     pub fn preflight_check(&self) -> anyhow::Result<()> {
         self.ensure_data_dir()?;
 
-        // 目录可写性检查。
+        // Check data directory writability.
         let probe = self.node.data_dir.join(".write_probe");
         std::fs::write(&probe, b"ok")
             .map_err(|e| anyhow::anyhow!("data_dir is not writable: {}", e))?;
         let _ = std::fs::remove_file(&probe);
 
-        // gRPC 监听地址端口可用性检查。
+        // Check gRPC listen address availability.
         Self::check_bindable(&self.node.listen_addr)?;
 
-        // HTTP 端口可用性检查。
+        // Check HTTP port availability.
         if self.http.enabled {
             let http_addr = format!("0.0.0.0:{}", self.http.port);
             Self::check_bindable(&http_addr)?;

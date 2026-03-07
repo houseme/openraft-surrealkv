@@ -1,4 +1,4 @@
-//! Prometheus 指标导出模块（Phase 5.3 + 原有 Phase 4 功能）
+//! Prometheus metrics export module (Phase 5.3 + existing Phase 4 capabilities)
 
 pub mod api;
 pub mod exporter;
@@ -150,7 +150,7 @@ impl MergeMetrics {
     }
 }
 
-/// 应用级指标聚合器（Phase 5.3）
+/// Application-level metrics aggregator (Phase 5.3).
 pub struct AppMetrics {
     pub raft: RaftMetrics,
     pub storage: StorageMetrics,

@@ -1,9 +1,9 @@
-//! HTTP API 相关的 Prometheus 指标
+//! Prometheus metrics related to the HTTP API
 
 use metrics::{counter, histogram};
 use std::time::Instant;
 
-/// HTTP API 指标记录器
+/// HTTP API metrics recorder.
 pub struct HttpMetrics {
     node_id: u64,
 }
@@ -13,7 +13,7 @@ impl HttpMetrics {
         Self { node_id }
     }
 
-    /// 记录 HTTP 请求
+    /// Record an HTTP request.
     pub fn record_request(&self, method: &str, endpoint: &str, status: u16, latency_ms: u64) {
         counter!(
             "http_requests_total",
@@ -34,36 +34,36 @@ impl HttpMetrics {
         .record(latency_ms as f64);
     }
 
-    /// 记录 GET /kv 请求
+    /// Record a GET /kv request.
     pub fn record_get_kv(&self, found: bool, latency_ms: u64) {
         let status = if found { 200 } else { 404 };
         self.record_request("GET", "/kv/:key", status, latency_ms);
     }
 
-    /// 记录 POST /kv 请求
+    /// Record a POST /kv request.
     pub fn record_put_kv(&self, success: bool, latency_ms: u64) {
         let status = if success { 200 } else { 500 };
         self.record_request("POST", "/kv/:key", status, latency_ms);
     }
 
-    /// 记录 DELETE /kv 请求
+    /// Record a DELETE /kv request.
     pub fn record_delete_kv(&self, success: bool, latency_ms: u64) {
         let status = if success { 200 } else { 500 };
         self.record_request("DELETE", "/kv/:key", status, latency_ms);
     }
 
-    /// 记录 GET /health 请求
+    /// Record a GET /health request.
     pub fn record_health_check(&self, latency_ms: u64) {
         self.record_request("GET", "/health", 200, latency_ms);
     }
 
-    /// 记录 GET /status 请求
+    /// Record a GET /status request.
     pub fn record_status(&self, latency_ms: u64) {
         self.record_request("GET", "/status", 200, latency_ms);
     }
 }
 
-/// 请求计时器
+/// Request timer.
 pub struct RequestTimer {
     start: Instant,
 }

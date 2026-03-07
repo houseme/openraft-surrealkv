@@ -40,6 +40,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Install rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -60,6 +65,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
@@ -81,6 +91,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Install rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -107,6 +122,11 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Install rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -161,6 +181,11 @@ jobs:
       - build-and-push
     steps:
       - uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -180,6 +205,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
       - name: Run cargo publish

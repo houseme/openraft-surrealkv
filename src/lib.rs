@@ -61,11 +61,11 @@ pub mod types;
 
 pub mod proto;
 
-// Phase 5: HTTP API 与配置管理
+// Phase 5: HTTP API and configuration management
 pub mod api;
 pub mod config;
 
-// Phase 5.2: Raft Node 与应用状态
+// Phase 5.2: Raft node and application state
 pub mod app;
 pub mod shutdown;
 

@@ -1,9 +1,9 @@
-//! 优雅关闭信号管理
+//! Graceful shutdown signal management
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-/// 关闭信号
+/// Shutdown signal.
 #[derive(Clone)]
 pub struct ShutdownSignal {
     is_shutting_down: Arc<AtomicBool>,

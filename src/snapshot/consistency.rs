@@ -227,7 +227,7 @@ mod tests {
         std::fs::create_dir_all(&checkpoint_dir).unwrap();
 
         let expected = 424242u64;
-        // 仅写 manifest，不写持久化键，模拟 key 缺失场景。
+        // Write manifest only (no persisted key) to simulate a missing-key scenario.
         let mut manifest = Vec::with_capacity(20);
         manifest.extend_from_slice(&1u32.to_be_bytes());
         manifest.extend_from_slice(&1u64.to_be_bytes());

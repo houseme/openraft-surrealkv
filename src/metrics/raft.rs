@@ -1,8 +1,8 @@
-//! Raft 相关的 Prometheus 指标
+//! Prometheus metrics related to Raft
 
 use metrics::{counter, gauge, histogram};
 
-/// Raft 指标记录器
+/// Raft metrics recorder.
 pub struct RaftMetrics {
     node_id: u64,
 }
@@ -12,57 +12,57 @@ impl RaftMetrics {
         Self { node_id }
     }
 
-    /// 记录当前任期
+    /// Record the current term.
     pub fn record_current_term(&self, term: u64) {
         gauge!("raft_current_term", "node_id" => self.node_id.to_string()).set(term as f64);
     }
 
-    /// 记录 Raft 状态
+    /// Record Raft state.
     pub fn record_state(&self, state: &str) {
         gauge!("raft_state", "node_id" => self.node_id.to_string(), "state" => state.to_string())
             .set(1.0);
     }
 
-    /// 记录已提交索引
+    /// Record committed index.
     pub fn record_commit_index(&self, index: u64) {
         gauge!("raft_commit_index", "node_id" => self.node_id.to_string()).set(index as f64);
     }
 
-    /// 记录已应用索引
+    /// Record applied index.
     pub fn record_applied_index(&self, index: u64) {
         gauge!("raft_applied_index", "node_id" => self.node_id.to_string()).set(index as f64);
     }
 
-    /// 记录日志长度
+    /// Record log length.
     pub fn record_log_length(&self, length: u64) {
         gauge!("raft_log_length", "node_id" => self.node_id.to_string()).set(length as f64);
     }
 
-    /// 记录选举时间（毫秒）
+    /// Record election latency (milliseconds).
     pub fn record_election_latency_ms(&self, latency_ms: u64) {
         histogram!("raft_election_latency_ms", "node_id" => self.node_id.to_string())
             .record(latency_ms as f64);
     }
 
-    /// 记录日志复制延迟（毫秒）
+    /// Record replication latency (milliseconds).
     pub fn record_replication_latency_ms(&self, latency_ms: u64, peer: u64) {
         histogram!("raft_replication_latency_ms", "node_id" => self.node_id.to_string(), "peer" => peer.to_string())
             .record(latency_ms as f64);
     }
 
-    /// 记录成功的 AppendEntries RPC
+    /// Record successful AppendEntries RPCs.
     pub fn record_append_entries_success(&self, peer: u64) {
         counter!("raft_append_entries_total", "node_id" => self.node_id.to_string(), "peer" => peer.to_string(), "status" => "success")
             .increment(1);
     }
 
-    /// 记录失败的 AppendEntries RPC
+    /// Record failed AppendEntries RPCs.
     pub fn record_append_entries_failure(&self, peer: u64) {
         counter!("raft_append_entries_total", "node_id" => self.node_id.to_string(), "peer" => peer.to_string(), "status" => "failure")
             .increment(1);
     }
 
-    /// 记录 RequestVote RPC
+    /// Record RequestVote RPCs.
     pub fn record_vote_request(&self, granted: bool) {
         counter!("raft_vote_requests_total", "node_id" => self.node_id.to_string(), "granted" => granted.to_string())
             .increment(1);

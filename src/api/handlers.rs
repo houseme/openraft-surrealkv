@@ -163,7 +163,7 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
 
 /// GET /ready - readiness probe
 pub async fn ready_check(State(state): State<AppState>) -> Json<ReadyResponse> {
-    // Option A: 仅进程 + 存储可用即 ready。
+    // Option A: ready when process is up and storage is accessible.
     let started = std::time::Instant::now();
     let storage_probe = state.storage.read("__ready_probe__").await;
     let latency = started.elapsed().as_millis() as u64;
