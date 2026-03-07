@@ -17,8 +17,10 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::{debug, error};
 
-use crate::proto::raft::raft_service_server::RaftServiceServer;
-use crate::proto::raft::{RaftMessage, raft_service_server::RaftService};
+use crate::proto::{
+    RaftMessage,
+    raft_service_server::{RaftService, RaftServiceServer},
+};
 
 /// Trait for handling Raft RPCs.
 #[async_trait::async_trait]
@@ -39,6 +41,7 @@ pub trait RaftServiceHandler: Send + Sync + 'static {
     ) -> std::result::Result<InstallSnapshotResponse<RaftTypeConfig>, RaftError<RaftTypeConfig>>;
 }
 
+// Implement RaftServiceHandler for OpenRaft's Raft instance
 #[async_trait::async_trait]
 impl RaftServiceHandler for openraft::Raft<RaftTypeConfig> {
     async fn append_entries(

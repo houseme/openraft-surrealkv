@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 use tonic::transport::Channel;
 use tracing::{debug, info, warn};
 
-use crate::proto::raft::{RaftMessage, raft_service_client::RaftServiceClient};
+use crate::proto::{RaftMessage, raft_service_client::RaftServiceClient};
 
 /// Runtime gRPC client configuration.
 #[derive(Debug, Clone)]
@@ -324,19 +324,16 @@ impl ConnectionPool {
 
     /// Get or create a client for the target node.
     pub async fn get_client(&self, target: NodeId) -> Result<RaftGrpcClient> {
-        if let Some(existing) = self.clients.lock().await.get(&target).cloned() {
+        let mut clients = self.clients.lock().await;
+        if let Some(existing) = clients.get(&target).cloned() {
             return Ok(existing);
         }
 
         let addr = self.address_resolver.resolve(target).await?;
         let created = RaftGrpcClient::connect(target, &addr, self.config.clone()).await?;
 
-        let mut clients = self.clients.lock().await;
-        let client = clients
-            .entry(target)
-            .or_insert_with(|| created.clone())
-            .clone();
-        Ok(client)
+        clients.insert(target, created.clone());
+        Ok(created)
     }
 
     /// Number of currently cached node connections.
