@@ -1,5 +1,5 @@
 use crate::api::handlers::{
-    AppState, delete_key, get_key, health_check, put_key, ready_check, status,
+    delete_key, get_key, health_check, put_key, ready_check, status, AppState,
 };
 use crate::app::RaftNode;
 use crate::metrics::render_metrics;
@@ -16,14 +16,18 @@ use tower_http::{
 };
 use tracing::info;
 
-/// HTTP 服务器
+/// HTTP server wrapper for the application's REST API.
+///
+/// This struct holds the Axum router and the listening address. The server exposes
+/// lightweight health/readiness endpoints and a simple KV CRUD API used for local
+/// testing and integration scenarios.
 pub struct HttpServer {
     app: Router,
     addr: SocketAddr,
 }
 
 impl HttpServer {
-    /// 创建新的 HTTP 服务器（Phase 5.1：无 Raft Node）
+    /// Create a new HTTP server without a Raft node (Phase 5.1).
     pub fn new(storage: Arc<SurrealStorage>, node_id: u64, port: u16) -> Self {
         let state = AppState {
             storage,
@@ -33,7 +37,7 @@ impl HttpServer {
         Self::with_app_state(state, port)
     }
 
-    /// 创建带 Raft Node 的 HTTP 服务器（Phase 5.2）
+    /// Create an HTTP server backed by a RaftNode (Phase 5.2).
     pub fn with_raft(
         storage: Arc<SurrealStorage>,
         raft_node: Arc<RaftNode>,
@@ -48,26 +52,26 @@ impl HttpServer {
         Self::with_app_state(state, port)
     }
 
-    /// 使用 AppState 创建服务器
+    /// Build the Axum Router and apply common middleware (CORS, tracing).
     fn with_app_state(state: AppState, port: u16) -> Self {
         let app = Router::new()
             // KV API
             .route("/kv/:key", get(get_key))
             .route("/kv/:key", post(put_key))
             .route("/kv/:key", delete(delete_key))
-            // 健康检查
+            // Health check
             .route("/health", get(health_check))
-            // 就绪检查
+            // Readiness check
             .route("/ready", get(ready_check))
-            // 集群状态
+            // Cluster status
             .route("/status", get(status))
-            // Metrics（由 metrics-exporter-prometheus 提供）
+            // Metrics (provided by metrics-exporter-prometheus)
             .route("/metrics", get(metrics_handler))
-            // 状态共享
+            // State sharing
             .with_state(state)
-            // 中间件：CORS
+            // Middleware: CORS
             .layer(CorsLayer::permissive())
-            // 中间件：请求追踪
+            // Middleware: Request tracing
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -77,7 +81,8 @@ impl HttpServer {
         Self { app, addr }
     }
 
-    /// 启动 HTTP 服务器
+    /// Start serving requests on the configured address. This method blocks until
+    /// the server is shut down or an error occurs.
     pub async fn serve(self) -> anyhow::Result<()> {
         info!("HTTP server listening on {}", self.addr);
 
@@ -91,7 +96,7 @@ impl HttpServer {
     }
 }
 
-/// GET /metrics - Prometheus 指标导出
+/// GET /metrics - Prometheus metrics rendering endpoint
 async fn metrics_handler() -> String {
     render_metrics()
 }
