@@ -80,11 +80,10 @@ impl CheckpointMergeBackend {
 
             if ty.is_dir() {
                 Self::copy_dir_recursive_hardlink_or_copy_sync(&src_path, &dst_path)?;
-            } else if ty.is_file() {
-                if std::fs::hard_link(&src_path, &dst_path).is_err() {
+            } else if ty.is_file()
+                && std::fs::hard_link(&src_path, &dst_path).is_err() {
                     std::fs::copy(&src_path, &dst_path)?;
                 }
-            }
         }
 
         Ok(())
@@ -106,7 +105,7 @@ impl CheckpointMergeBackend {
         .map_err(|e| Error::Storage(format!("baseline copy task panicked: {}", e)))??;
 
         let tree = TreeBuilder::new()
-            .with_path(temp_path.to_path_buf().into())
+            .with_path(temp_path.to_path_buf())
             .build()
             .map_err(|e| {
                 Error::Storage(format!("failed to open temp tree from checkpoint: {}", e))
@@ -265,7 +264,7 @@ mod tests {
         let base = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(base.path().join("tree").into())
+                .with_path(base.path().join("tree"))
                 .build()
                 .unwrap(),
         );
@@ -279,7 +278,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into());
+        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp"));
 
         // Create a mock snapshot state (no delta).
         let mut state = SnapshotMetaState::new();
@@ -296,7 +295,7 @@ mod tests {
     #[tokio::test]
     async fn test_checkpoint_merge_backend_fail_fast_without_checkpoint_meta() {
         let base = TempDir::new().unwrap();
-        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into());
+        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp"));
 
         let state = SnapshotMetaState::new();
         let err = backend.execute_merge(&state).await.unwrap_err();
@@ -307,7 +306,7 @@ mod tests {
     #[tokio::test]
     async fn test_checkpoint_merge_backend_fail_fast_missing_explicit_checkpoint_path() {
         let base = TempDir::new().unwrap();
-        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into());
+        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp"));
 
         let mut state = SnapshotMetaState::new();
         state.last_checkpoint = Some(
@@ -323,7 +322,7 @@ mod tests {
     #[tokio::test]
     async fn test_checkpoint_merge_backend_fail_fast_when_checkpoint_path_is_absent() {
         let base = TempDir::new().unwrap();
-        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into());
+        let backend = CheckpointMergeBackend::new().with_temp_base(base.path().join("temp"));
 
         let mut state = SnapshotMetaState::new();
         state.last_checkpoint = Some(CheckpointMetadata::new(10, 2, 1, 100));

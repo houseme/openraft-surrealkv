@@ -1,4 +1,4 @@
-//! Snapshot modules for Phase 2 Checkpoint implementation
+//! Snapshot modules for checkpoint, delta, compression, and restore workflows.
 //!
 //! This module includes:
 //! - `checkpoint` - SurrealKV checkpoint creation
@@ -199,10 +199,10 @@ impl SnapshotBuildConfig {
     /// - `MEMBERSHIP_JSON` (JSON array: [{"node_id":1,"addr":"127.0.0.1:50051"},...])
     pub fn from_env() -> Self {
         // Try JSON membership first (priority).
-        if let Ok(json_str) = std::env::var("MEMBERSHIP_JSON") {
-            if let Ok(parsed) = Self::parse_membership_json(&json_str) {
-                return parsed;
-            }
+        if let Ok(json_str) = std::env::var("MEMBERSHIP_JSON")
+            && let Ok(parsed) = Self::parse_membership_json(&json_str)
+        {
+            return parsed;
         }
 
         // Fallback to individual env vars.
@@ -226,7 +226,7 @@ impl SnapshotBuildConfig {
 
     /// Parse membership from JSON format.
     /// Expected: `[{"node_id":1,"addr":"127.0.0.1:50051"},...]`
-    /// For single-node: takes first entry.
+    /// Current behavior picks the first entry as the local node baseline.
     fn parse_membership_json(json_str: &str) -> Result<Self> {
         #[derive(serde::Deserialize)]
         struct MemberEntry {
@@ -243,12 +243,12 @@ impl SnapshotBuildConfig {
             ));
         }
 
-        // For Phase 2 single-node: use first entry.
+        // Current single-node bootstrap behavior: use the first entry.
         let first = &entries[0];
         Ok(Self {
             node_id: first.node_id,
             node_addr: first.addr.clone(),
-            current_term: 0, // Term not included in membership json.
+            current_term: 0, // Membership JSON does not carry term.
         })
     }
 }
@@ -327,7 +327,7 @@ impl RaftSnapshotBuilder {
             ));
             snapshot_meta.snapshot_id = format!("delta-{}-{}", applied_index, now);
 
-            // Keep membership baseline consistent with full snapshots.
+            // Keep membership baseline aligned with startup-injected node identity.
             let mut voters = BTreeSet::new();
             voters.insert(self.build_cfg.node_id);
             let mut nodes = BTreeMap::new();
@@ -353,7 +353,7 @@ impl RaftSnapshotBuilder {
         let checkpoint_base = PathBuf::from("target/checkpoints");
         let checkpoint_builder = CheckpointBuilder::new(checkpoint_base.clone());
 
-        // Term is not plumbed through storage yet; keep 0 for current Week 2 scaffold.
+        // Term is sourced from `build_cfg` until storage-level term plumbing is expanded.
         let meta = checkpoint_builder
             .create(
                 self.tree.clone(),
@@ -390,7 +390,7 @@ impl RaftSnapshotBuilder {
             applied_index,
         ));
 
-        // Phase-2 policy: startup-injected single-node membership baseline.
+        // Keep membership baseline aligned with startup-injected node identity.
         let mut voters = BTreeSet::new();
         voters.insert(self.build_cfg.node_id);
         let mut nodes = BTreeMap::new();
@@ -441,7 +441,7 @@ impl RaftSnapshotBuilder {
             }
         }
 
-        // Backward compatibility for old full snapshots written before envelope support.
+        // Backward compatibility for full snapshots written before envelope support.
         let applied_index = meta.last_log_id.as_ref().map(|x| x.index).unwrap_or(0);
         let term = meta
             .last_log_id
@@ -487,7 +487,7 @@ mod tests {
         let base = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(base.path().join("tree").into())
+                .with_path(base.path().join("tree"))
                 .build()
                 .unwrap(),
         );

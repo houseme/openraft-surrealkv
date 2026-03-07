@@ -34,7 +34,7 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
     // 1. 创建初始 Tree 并写入数据
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree").into())
+            .with_path(base.path().join("tree"))
             .build()
             .unwrap(),
     );
@@ -101,8 +101,7 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
         .await?;
 
     // 5. 执行合并
-    let backend =
-        Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into()));
+    let backend = Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp")));
 
     let executor = MergeExecutor::new(
         metadata_mgr.clone(),
@@ -143,7 +142,7 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree").into())
+            .with_path(base.path().join("tree"))
             .build()
             .unwrap(),
     );
@@ -164,8 +163,7 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     state.total_delta_bytes = 5000;
     metadata_mgr.save_snapshot_state(state).await?;
 
-    let backend =
-        Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into()));
+    let backend = Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp")));
 
     let executor = MergeExecutor::new(
         metadata_mgr.clone(),
@@ -219,7 +217,7 @@ async fn test_e2e_merge_failure_recovery() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree").into())
+            .with_path(base.path().join("tree"))
             .build()
             .unwrap(),
     );

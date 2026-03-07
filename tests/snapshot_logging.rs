@@ -34,7 +34,7 @@ async fn test_logging_base_mismatch_contains_structured_fields() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db-base-mismatch").into())
+            .with_path(dir.path().join("db-base-mismatch"))
             .build()
             .unwrap(),
     );
@@ -93,7 +93,7 @@ async fn test_logging_invalid_payload_contains_reject_stage() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db-invalid").into())
+            .with_path(dir.path().join("db-invalid"))
             .build()
             .unwrap(),
     );
@@ -121,7 +121,7 @@ async fn test_logging_corrupted_delta_contains_decode_stage() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db-decode").into())
+            .with_path(dir.path().join("db-decode"))
             .build()
             .unwrap(),
     );

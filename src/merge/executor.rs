@@ -1,7 +1,5 @@
-use super::cleanup::{CleanupReport, MergeCleanup};
-use super::policy::{DeltaMergePolicy, MergeTrigger};
-use super::{MERGE_ERR_INJECTED_FAILURE, MERGE_ERR_UNKNOWN};
 use crate::error::{Error, Result};
+use crate::merge::{CleanupReport, DeltaMergePolicy, MergeCleanup, MergeTrigger};
 use crate::metrics::MergeMetrics;
 use crate::state::{MergeProgressState, MetadataManager, SnapshotMetaState};
 use async_trait::async_trait;
@@ -50,8 +48,8 @@ fn merge_error_code(err: &Error) -> String {
             .next()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| MERGE_ERR_UNKNOWN.to_string()),
-        _ => MERGE_ERR_UNKNOWN.to_string(),
+            .unwrap_or_else(|| crate::merge::MERGE_ERR_UNKNOWN.to_string()),
+        _ => crate::merge::MERGE_ERR_UNKNOWN.to_string(),
     }
 }
 
@@ -238,6 +236,7 @@ impl MergeExecutor {
 mod tests {
     use super::*;
     use crate::merge::MergeCleanupConfig;
+    use crate::merge::MERGE_ERR_INJECTED_FAILURE;
     use crate::state::{CheckpointMetadata, DeltaInfo};
     use surrealkv::TreeBuilder;
     use tempfile::TempDir;
@@ -273,7 +272,7 @@ mod tests {
         let base = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(base.path().join("tree").into())
+                .with_path(base.path().join("tree"))
                 .build()
                 .unwrap(),
         );

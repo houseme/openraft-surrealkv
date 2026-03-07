@@ -1,6 +1,6 @@
-//! HTTP REST API module (Phase 5)
+//! HTTP REST API module.
 //!
-//! Provides a lightweight HTTP interface for interacting with the KV storage and operational
+//! Provides a lightweight HTTP interface for interacting with KV storage and operational
 //! endpoints useful for debugging and SRE integration. Exposed endpoints include:
 //! - GET /kv/:key     -> read a key
 //! - POST /kv/:key    -> write a key

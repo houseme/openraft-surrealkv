@@ -48,10 +48,10 @@ impl SequenceNumberReader for PersistedKeySequenceNumberReader {
             return Ok(u64::from_be_bytes(bytes));
         }
 
-        if let Ok(s) = std::str::from_utf8(&raw) {
-            if let Ok(v) = s.parse::<u64>() {
-                return Ok(v);
-            }
+        if let Ok(s) = std::str::from_utf8(&raw)
+            && let Ok(v) = s.parse::<u64>()
+        {
+            return Ok(v);
         }
 
         Err(Error::Snapshot(
@@ -189,7 +189,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(tmp.path().join("db").into())
+                .with_path(tmp.path().join("db"))
                 .build()
                 .unwrap(),
         );
@@ -218,7 +218,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(tmp.path().join("db-fallback-manifest").into())
+                .with_path(tmp.path().join("db-fallback-manifest"))
                 .build()
                 .unwrap(),
         );
@@ -244,7 +244,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(tmp.path().join("db-fallback-metadata").into())
+                .with_path(tmp.path().join("db-fallback-metadata"))
                 .build()
                 .unwrap(),
         );

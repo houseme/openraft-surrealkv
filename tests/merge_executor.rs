@@ -41,7 +41,7 @@ async fn merge_executor_retries_and_updates_state() {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree").into())
+            .with_path(base.path().join("tree"))
             .build()
             .unwrap(),
     );
@@ -90,7 +90,7 @@ async fn merge_executor_does_not_spawn_when_policy_not_triggered() {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree_no_spawn").into())
+            .with_path(base.path().join("tree_no_spawn"))
             .build()
             .unwrap(),
     );

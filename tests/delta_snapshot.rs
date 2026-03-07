@@ -14,7 +14,7 @@ async fn test_auto_build_selects_delta_when_entry_threshold_is_reached() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db").into())
+            .with_path(dir.path().join("db"))
             .build()
             .unwrap(),
     );
@@ -64,7 +64,7 @@ async fn test_auto_build_falls_back_to_full_when_no_delta_entries() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db").into())
+            .with_path(dir.path().join("db"))
             .build()
             .unwrap(),
     );
@@ -82,7 +82,7 @@ async fn test_install_snapshot_auto_replays_delta_entries() {
     let src_dir = TempDir::new().unwrap();
     let src_tree = Arc::new(
         TreeBuilder::new()
-            .with_path(src_dir.path().join("db-src").into())
+            .with_path(src_dir.path().join("db-src"))
             .build()
             .unwrap(),
     );
@@ -106,7 +106,7 @@ async fn test_install_snapshot_auto_replays_delta_entries() {
     let dst_dir = TempDir::new().unwrap();
     let dst_tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dst_dir.path().join("db-dst").into())
+            .with_path(dst_dir.path().join("db-dst"))
             .build()
             .unwrap(),
     );
@@ -126,7 +126,7 @@ async fn test_build_snapshot_auto_updates_snapshot_state() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db-meta").into())
+            .with_path(dir.path().join("db-meta"))
             .build()
             .unwrap(),
     );
@@ -156,7 +156,7 @@ async fn test_delta_size_threshold_under_5mb() {
     let dir = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(dir.path().join("db-size").into())
+            .with_path(dir.path().join("db-size"))
             .build()
             .unwrap(),
     );

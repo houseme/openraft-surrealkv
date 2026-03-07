@@ -12,7 +12,7 @@ async fn test_merge_recovery_clears_exhausted_retries() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree").into())
+            .with_path(base.path().join("tree"))
             .build()
             .unwrap(),
     );
@@ -55,7 +55,7 @@ async fn test_merge_recovery_spawns_if_policy_met() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree_recovery").into())
+            .with_path(base.path().join("tree_recovery"))
             .build()
             .unwrap(),
     );
@@ -101,7 +101,7 @@ async fn test_merge_recovery_skips_when_policy_not_met() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree_no_recovery").into())
+            .with_path(base.path().join("tree_no_recovery"))
             .build()
             .unwrap(),
     );
@@ -145,7 +145,7 @@ async fn test_merge_recovery_without_executor_configured() -> Result<()> {
     let base = TempDir::new().unwrap();
     let tree = Arc::new(
         TreeBuilder::new()
-            .with_path(base.path().join("tree_no_executor").into())
+            .with_path(base.path().join("tree_no_executor"))
             .build()
             .unwrap(),
     );

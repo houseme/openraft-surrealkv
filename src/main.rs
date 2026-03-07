@@ -211,7 +211,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     info!("Shutting down gracefully...");
-    // TODO: graceful shutdown flow
+    // TODO: coordinate HTTP and Raft task shutdown with bounded drain/flush deadlines.
 
     Ok(())
 }

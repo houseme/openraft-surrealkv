@@ -122,7 +122,7 @@ impl RaftStateMachine<RaftTypeConfig> for SurrealStorage {
                 EntryPayload::Blank => KVResponse::Ok,
                 EntryPayload::Membership(membership) => {
                     *self.last_membership.write().await =
-                        StoredMembership::new(Some(log_id.clone()), membership);
+                        StoredMembership::new(Some(log_id), membership);
                     KVResponse::Ok
                 }
                 EntryPayload::Normal(req) => {
@@ -200,14 +200,14 @@ impl RaftLogStorage<RaftTypeConfig> for SurrealStorage {
     type LogReader = SurrealStorage;
 
     async fn get_log_state(&mut self) -> Result<LogState<RaftTypeConfig>, io::Error> {
-        let last_purged = self.last_purged_log_id.read().await.clone();
+        let last_purged = *self.last_purged_log_id.read().await;
         let last_log = self
             .raft_entries
             .read()
             .await
             .last_key_value()
-            .map(|(_, e)| e.log_id.clone())
-            .or_else(|| last_purged.clone());
+            .map(|(_, e)| e.log_id)
+            .or(last_purged);
 
         Ok(LogState {
             last_purged_log_id: last_purged,

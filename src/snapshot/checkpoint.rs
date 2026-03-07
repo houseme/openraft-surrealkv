@@ -180,7 +180,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let tree = Arc::new(
             TreeBuilder::new()
-                .with_path(temp_dir.path().join("db").into())
+                .with_path(temp_dir.path().join("db"))
                 .build()
                 .unwrap(),
         );

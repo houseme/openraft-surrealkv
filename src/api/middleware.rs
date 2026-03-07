@@ -41,11 +41,11 @@ pub async fn request_id_middleware(mut req: Request, next: Next) -> Response {
     let mut resp = next.run(req).await;
 
     // Ensure response contains the request-id header for correlation
-    if resp.headers().get("x-request-id").is_none() {
-        if let Ok(value) = header::HeaderValue::from_str(&req_id) {
-            resp.headers_mut()
-                .insert(header::HeaderName::from_static("x-request-id"), value);
-        }
+    if resp.headers().get("x-request-id").is_none()
+        && let Ok(value) = header::HeaderValue::from_str(&req_id)
+    {
+        resp.headers_mut()
+            .insert(header::HeaderName::from_static("x-request-id"), value);
     }
 
     resp

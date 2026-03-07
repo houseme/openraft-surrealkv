@@ -350,14 +350,14 @@ impl SurrealStorage {
         }
 
         // Phase 4: Trigger background merge if policy is met
-        if let Some(executor) = &self.merge_executor {
-            if let Ok(Some(handle)) = executor.spawn_if_needed().await {
-                tracing::info!(
-                    trigger = handle.trigger.as_str(),
-                    "background merge task spawned after snapshot creation"
-                );
-                // Return snapshot immediately; merge continues in background (non-blocking).
-            }
+        if let Some(executor) = &self.merge_executor
+            && let Ok(Some(handle)) = executor.spawn_if_needed().await
+        {
+            tracing::info!(
+                trigger = handle.trigger.as_str(),
+                "background merge task spawned after snapshot creation"
+            );
+            // Return snapshot immediately; merge continues in background (non-blocking).
         }
 
         Ok(snapshot)

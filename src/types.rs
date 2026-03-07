@@ -47,16 +47,19 @@ impl std::fmt::Display for KVResponse {
     }
 }
 
-/// Phase 0 Responder - Simple no-op implementation for now
+/// Placeholder responder used by the current OpenRaft type config.
+///
+/// This implementation is intentionally no-op because write acknowledgements are
+/// currently handled in higher-level flows.
 #[derive(Debug, Clone)]
 pub struct Phase0Responder<T>(std::marker::PhantomData<T>);
 
 impl<T: Send + 'static> Responder<RaftTypeConfig, T> for Phase0Responder<T> {
     fn on_commit(&mut self, _log_id: LogId<RaftTypeConfig>) {
-        // TODO: Implement in Phase 2
+        // No-op until responder callbacks are wired into the write path.
     }
     fn on_complete(self, _result: T) {
-        // TODO: Implement in Phase 2
+        // No-op until responder completion handling is wired.
     }
 }
 
@@ -105,7 +108,7 @@ impl DeltaEntry {
     }
 }
 
-/// Snapshot payload format used by Phase 3.
+/// Snapshot payload format used by current snapshot encoding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SnapshotFormat {
     /// Full checkpoint snapshot (tar.zst bytes).

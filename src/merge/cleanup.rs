@@ -104,10 +104,10 @@ impl MergeCleanup {
         let mut removed = 0usize;
         let mut rd = fs::read_dir(&self.config.temp_merge_dir)
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
-        while let Some(entry) = rd.next_entry().await.map_err(|e| Error::Io(e))? {
-            let meta = entry.metadata().await.map_err(|e| Error::Io(e))?;
+        while let Some(entry) = rd.next_entry().await.map_err(Error::Io)? {
+            let meta = entry.metadata().await.map_err(Error::Io)?;
             if !meta.is_dir() {
                 continue;
             }
@@ -121,7 +121,7 @@ impl MergeCleanup {
             if now.saturating_sub(modified_secs) >= self.config.max_temp_age_secs {
                 fs::remove_dir_all(entry.path())
                     .await
-                    .map_err(|e| Error::Io(e))?;
+                    .map_err(Error::Io)?;
                 removed = removed.saturating_add(1);
             }
         }
@@ -137,10 +137,10 @@ impl MergeCleanup {
         let mut dirs = Vec::new();
         let mut rd = fs::read_dir(&self.config.checkpoints_dir)
             .await
-            .map_err(|e| Error::Io(e))?;
+            .map_err(Error::Io)?;
 
-        while let Some(entry) = rd.next_entry().await.map_err(|e| Error::Io(e))? {
-            let meta = entry.metadata().await.map_err(|e| Error::Io(e))?;
+        while let Some(entry) = rd.next_entry().await.map_err(Error::Io)? {
+            let meta = entry.metadata().await.map_err(Error::Io)?;
             if !meta.is_dir() {
                 continue;
             }
@@ -167,7 +167,7 @@ impl MergeCleanup {
 
 async fn remove_dir_if_exists(path: &Path) -> Result<()> {
     if path.exists() {
-        fs::remove_dir_all(path).await.map_err(|e| Error::Io(e))?;
+        fs::remove_dir_all(path).await.map_err(Error::Io)?;
     }
     Ok(())
 }
