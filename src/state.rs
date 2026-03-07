@@ -69,6 +69,9 @@ pub struct CheckpointMetadata {
     pub sequence_number: u64,
     /// Timestamp of checkpoint creation
     pub created_at: u64,
+    /// Explicit baseline checkpoint directory path for deterministic restore.
+    #[serde(default)]
+    pub checkpoint_path: Option<String>,
 }
 
 impl CheckpointMetadata {
@@ -78,7 +81,13 @@ impl CheckpointMetadata {
             checkpoint_term: term,
             sequence_number: seq,
             created_at: timestamp,
+            checkpoint_path: None,
         }
+    }
+
+    pub fn with_checkpoint_path(mut self, checkpoint_path: String) -> Self {
+        self.checkpoint_path = Some(checkpoint_path);
+        self
     }
 }
 
@@ -378,11 +387,22 @@ mod tests {
 
     #[test]
     fn test_checkpoint_metadata_new() {
-        let meta = CheckpointMetadata::new(100, 5, 12345, 1234567890);
+        let meta = CheckpointMetadata::new(100, 5, 12345, 999);
         assert_eq!(meta.checkpoint_index, 100);
         assert_eq!(meta.checkpoint_term, 5);
         assert_eq!(meta.sequence_number, 12345);
-        assert_eq!(meta.created_at, 1234567890);
+        assert_eq!(meta.created_at, 999);
+        assert!(meta.checkpoint_path.is_none());
+    }
+
+    #[test]
+    fn test_checkpoint_metadata_with_checkpoint_path() {
+        let meta = CheckpointMetadata::new(100, 5, 12345, 999)
+            .with_checkpoint_path("target/checkpoints/checkpoint_999".to_string());
+        assert_eq!(
+            meta.checkpoint_path.as_deref(),
+            Some("target/checkpoints/checkpoint_999")
+        );
     }
 
     #[test]

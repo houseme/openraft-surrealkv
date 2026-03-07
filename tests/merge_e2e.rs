@@ -1,7 +1,7 @@
 use openraft_surrealkv::error::Result;
 use openraft_surrealkv::merge::{
-    CheckpointMergeBackend, DeltaMergePolicy, MergeBackend, MergeCleanup, MergeCleanupConfig,
-    MergeExecutor,
+    CheckpointMergeBackend, DeltaMergePolicy, MergeBackend, MergeCleanup,
+    MergeCleanupConfig, MergeExecution, MergeExecutor, MERGE_ERR_INJECTED_FAILURE,
 };
 use openraft_surrealkv::metrics::MergeMetrics;
 use openraft_surrealkv::snapshot::DeltaSnapshotCodec;
@@ -12,6 +12,19 @@ use openraft_surrealkv::types::{DeltaEntry, KVRequest};
 use std::sync::Arc;
 use surrealkv::TreeBuilder;
 use tempfile::TempDir;
+
+async fn create_baseline_checkpoint(
+    tree: Arc<surrealkv::Tree>,
+    path: std::path::PathBuf,
+) -> Result<String> {
+    let cp_path = path.clone();
+    tokio::task::spawn_blocking(move || tree.create_checkpoint(&cp_path))
+        .await
+        .map_err(|e| {
+            openraft_surrealkv::error::Error::Snapshot(format!("checkpoint task panicked: {}", e))
+        })??;
+    Ok(path.to_string_lossy().to_string())
+}
 
 /// 端到端测试：合并后的快照可被正确恢复
 #[tokio::test]
@@ -72,8 +85,12 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
 
     // 4. 构建 SnapshotMetaState
     let metadata_mgr = Arc::new(MetadataManager::new(tree.clone()));
+    let baseline_cp =
+        create_baseline_checkpoint(tree.clone(), base.path().join("baseline_cp")).await?;
+
     let mut snapshot_state = SnapshotMetaState::new();
-    snapshot_state.last_checkpoint = Some(CheckpointMetadata::new(100, 1, 1, 1000));
+    snapshot_state.last_checkpoint =
+        Some(CheckpointMetadata::new(100, 1, 1, 1000).with_checkpoint_path(baseline_cp));
     snapshot_state.delta_chain.push(
         DeltaInfo::new(101, 103, compressed.len() as u64, 1001)
             .with_file_path(delta_path.display().to_string()),
@@ -84,9 +101,8 @@ async fn test_e2e_merge_and_restore() -> Result<()> {
         .await?;
 
     // 5. 执行合并
-    let backend = Arc::new(
-        CheckpointMergeBackend::new(tree.clone()).with_temp_base(base.path().join("temp").into()),
-    );
+    let backend =
+        Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into()));
 
     let executor = MergeExecutor::new(
         metadata_mgr.clone(),
@@ -133,10 +149,13 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     );
 
     let metadata_mgr = Arc::new(MetadataManager::new(tree.clone()));
+    let baseline_cp =
+        create_baseline_checkpoint(tree.clone(), base.path().join("baseline_cp")).await?;
 
     // 设置满足合并条件的状态
     let mut state = SnapshotMetaState::new();
-    state.last_checkpoint = Some(CheckpointMetadata::new(100, 1, 1, 1000));
+    state.last_checkpoint =
+        Some(CheckpointMetadata::new(100, 1, 1, 1000).with_checkpoint_path(baseline_cp));
     for i in 0..5 {
         state
             .delta_chain
@@ -145,9 +164,8 @@ async fn test_e2e_multiple_merges_idempotent() -> Result<()> {
     state.total_delta_bytes = 5000;
     metadata_mgr.save_snapshot_state(state).await?;
 
-    let backend = Arc::new(
-        CheckpointMergeBackend::new(tree.clone()).with_temp_base(base.path().join("temp").into()),
-    );
+    let backend =
+        Arc::new(CheckpointMergeBackend::new().with_temp_base(base.path().join("temp").into()));
 
     let executor = MergeExecutor::new(
         metadata_mgr.clone(),
@@ -174,21 +192,27 @@ async fn test_e2e_merge_failure_recovery() -> Result<()> {
     use async_trait::async_trait;
 
     struct FailOnceThenSucceedBackend {
-        tree: Arc<surrealkv::Tree>,
         failed: std::sync::atomic::AtomicBool,
     }
 
     #[async_trait]
     impl MergeBackend for FailOnceThenSucceedBackend {
-        async fn execute_merge(&self, snapshot_state: &SnapshotMetaState) -> Result<u64> {
+        async fn execute_merge(
+            &self,
+            snapshot_state: &SnapshotMetaState,
+        ) -> Result<MergeExecution> {
             if !self.failed.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                return Err(openraft_surrealkv::error::Error::Snapshot(
-                    "injected failure".to_string(),
-                ));
+                return Err(openraft_surrealkv::error::Error::Snapshot(format!(
+                    "{}: injected failure",
+                    MERGE_ERR_INJECTED_FAILURE
+                )));
             }
 
             // 第二次调用成功
-            Ok(snapshot_state.total_delta_bytes)
+            Ok(MergeExecution {
+                checkpoint_size_bytes: snapshot_state.total_delta_bytes,
+                checkpoint_path: Some("target/checkpoints/checkpoint_test".to_string()),
+            })
         }
     }
 
@@ -212,7 +236,6 @@ async fn test_e2e_merge_failure_recovery() -> Result<()> {
     metadata_mgr.save_snapshot_state(state).await?;
 
     let backend = Arc::new(FailOnceThenSucceedBackend {
-        tree: tree.clone(),
         failed: std::sync::atomic::AtomicBool::new(false),
     });
 

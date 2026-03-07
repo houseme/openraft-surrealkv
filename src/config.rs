@@ -91,6 +91,8 @@ pub struct MetricsConfig {
 pub struct ClusterConfig {
     /// 当前节点是否执行 bootstrap 初始化
     pub bootstrap: bool,
+    /// 期望 voter 数量（self + peers），用于防误配置
+    pub expected_voters: Option<usize>,
     /// 已知集群节点（不包含本节点）
     #[serde(default)]
     pub peers: Vec<PeerConfig>,
@@ -248,6 +250,21 @@ impl Config {
             }
             if !seen_addrs.insert(p.addr.clone()) {
                 anyhow::bail!("cluster.peers contains duplicate addr: {}", p.addr);
+            }
+        }
+
+        if let Some(expected) = self.cluster.expected_voters {
+            if expected == 0 {
+                anyhow::bail!("cluster.expected_voters must be greater than 0");
+            }
+
+            let actual = 1 + self.cluster.peers.len();
+            if expected != actual {
+                anyhow::bail!(
+                    "cluster.expected_voters mismatch: expected={}, actual={} (self + peers)",
+                    expected,
+                    actual
+                );
             }
         }
 
@@ -437,5 +454,52 @@ mod tests {
         assert_eq!(addrs.get(&1).map(String::as_str), Some("127.0.0.1:50051"));
         assert_eq!(addrs.get(&2).map(String::as_str), Some("127.0.0.1:50052"));
         assert_eq!(addrs.get(&3).map(String::as_str), Some("127.0.0.1:50053"));
+    }
+
+    #[test]
+    fn test_validate_expected_voters_match() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![
+            PeerConfig {
+                node_id: 2,
+                addr: "127.0.0.1:50052".to_string(),
+            },
+            PeerConfig {
+                node_id: 3,
+                addr: "127.0.0.1:50053".to_string(),
+            },
+        ];
+        config.cluster.expected_voters = Some(3);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_expected_voters_mismatch() {
+        let mut config = Config::default();
+        config.cluster.peers = vec![PeerConfig {
+            node_id: 2,
+            addr: "127.0.0.1:50052".to_string(),
+        }];
+        config.cluster.expected_voters = Some(3);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_expected_voters_zero() {
+        let mut config = Config::default();
+        config.cluster.expected_voters = Some(0);
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_expected_voters_mismatch_even_without_bootstrap() {
+        let mut config = Config::default();
+        config.cluster.bootstrap = false;
+        config.cluster.peers = vec![PeerConfig {
+            node_id: 2,
+            addr: "127.0.0.1:50052".to_string(),
+        }];
+        config.cluster.expected_voters = Some(3);
+        assert!(config.validate().is_err());
     }
 }

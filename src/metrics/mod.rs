@@ -117,7 +117,13 @@ impl MergeMetrics {
             .set(checkpoint_size_bytes as f64);
     }
 
-    pub fn record_merge_failure(&self, trigger: MergeTrigger, retries: u8, started_at_secs: u64) {
+    pub fn record_merge_failure(
+        &self,
+        trigger: MergeTrigger,
+        retries: u8,
+        started_at_secs: u64,
+        error_code: &str,
+    ) {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
@@ -130,6 +136,7 @@ impl MergeMetrics {
             "trigger" => trigger.as_str().to_string(),
             "retries" => retries.to_string(),
             "result" => "failed".to_string(),
+            "error_code" => error_code.to_string(),
         )
         .record(duration_ms as f64);
 
@@ -137,6 +144,7 @@ impl MergeMetrics {
             METRIC_MERGE_FAILED_TOTAL,
             "node_id" => self.node_id.clone(),
             "trigger" => trigger.as_str().to_string(),
+            "error_code" => error_code.to_string(),
         )
         .increment(1);
     }

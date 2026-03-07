@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use openraft_surrealkv::error::{Error, Result};
 use openraft_surrealkv::merge::{
-    DeltaMergePolicy, MergeBackend, MergeCleanup, MergeCleanupConfig, MergeExecutor,
+    DeltaMergePolicy, MergeBackend, MergeCleanup, MergeCleanupConfig, MergeExecution,
+    MergeExecutor, MERGE_ERR_INJECTED_FAILURE,
 };
 use openraft_surrealkv::metrics::MergeMetrics;
 use openraft_surrealkv::state::{
@@ -19,13 +20,19 @@ struct FlakyBackend {
 
 #[async_trait]
 impl MergeBackend for FlakyBackend {
-    async fn execute_merge(&self, _snapshot_state: &SnapshotMetaState) -> Result<u64> {
+    async fn execute_merge(&self, _snapshot_state: &SnapshotMetaState) -> Result<MergeExecution> {
         let mut guard = self.remaining_failures.lock().await;
         if *guard > 0 {
             *guard -= 1;
-            return Err(Error::Snapshot("injected failure".to_string()));
+            return Err(Error::Snapshot(format!(
+                "{}: injected failure",
+                MERGE_ERR_INJECTED_FAILURE
+            )));
         }
-        Ok(8192)
+        Ok(MergeExecution {
+            checkpoint_size_bytes: 8192,
+            checkpoint_path: Some("target/checkpoints/checkpoint_test".to_string()),
+        })
     }
 }
 

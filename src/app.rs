@@ -174,6 +174,14 @@ impl RaftNode {
             .await
             .last_applied_index
     }
+
+    /// 读取状态机中的 key（主要用于集成测试与诊断）
+    pub async fn read_key(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.storage
+            .read(key)
+            .await
+            .map_err(|e| anyhow::anyhow!("read key failed: {}", e))
+    }
 }
 
 #[cfg(test)]

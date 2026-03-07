@@ -18,6 +18,7 @@ resolver = "3"
 
 [features]
 default = []
+integration-cluster = []
 
 [dependencies]
 openraft = { version = "0.10.0-alpha.15", features = ["serde", "tracing-log"] }
@@ -46,11 +47,10 @@ metrics-exporter-prometheus = "0.18.1"
 crc-fast = "1.9.0"
 serde_json = "1.0.149"
 
-# Phase 5: 生产级配置与工具
-clap = { version = "4.5", features = ["derive", "env"] }
+clap = { version = "4.5.60", features = ["derive", "env"] }
 toml = "1.0.4"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors", "compression-full"] }
+tower-http = { version = "0.6.8", features = ["trace", "cors", "compression-full"] }
 base64 = "0.22"
 
 
@@ -61,7 +61,7 @@ tonic-prost-build = "0.14.5"
 openraft = { version = "0.10.0-alpha.15", features = ["tracing-log"] }
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
 tonic = { version = "0.14.5", features = ["transport"] }
-tempfile = "3"
-tracing-test = "0.2"
-serial_test = "3"
-temp-env = "0.3"
+tempfile = "3.26.0"
+tracing-test = "0.2.6"
+serial_test = "3.4"
+temp-env = "0.3.6"

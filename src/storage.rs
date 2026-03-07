@@ -8,7 +8,9 @@
 //! The storage adapts to work with both OpenRaft versions through the raft_adapter module.
 
 use crate::error::{Error, Result};
-use crate::merge::{DeltaMergePolicy, MergeCleanup, MergeCleanupConfig, MergeExecutor};
+use crate::merge::{
+    CheckpointMergeBackend, DeltaMergePolicy, MergeCleanup, MergeCleanupConfig, MergeExecutor,
+};
 use crate::metrics::{record_snapshot_strict_error, MergeMetrics, SnapshotStage};
 use crate::snapshot::{
     decode_snapshot_payload, DecodedSnapshotPayload, RaftSnapshotBuilder, SnapshotBuildConfig,
@@ -107,12 +109,14 @@ impl SurrealStorage {
         policy: DeltaMergePolicy,
         node_id: impl Into<String>,
     ) -> Self {
+        let backend = Arc::new(CheckpointMergeBackend::new());
         let executor = MergeExecutor::new(
             self.metadata.clone(),
             policy,
             MergeMetrics::new(node_id),
             MergeCleanup::new(MergeCleanupConfig::default()),
-        );
+        )
+        .with_backend(backend);
         self.merge_executor = Some(Arc::new(executor));
         self
     }
@@ -298,12 +302,27 @@ impl SurrealStorage {
                         .map(|x| (x.index, **x.committed_leader_id()))
                         .unwrap_or((0, 0));
 
-                    snapshot_state.last_checkpoint = Some(PersistedCheckpointMetadata::new(
-                        index,
-                        term,
-                        0,
-                        meta.created_at,
-                    ));
+                    // 使用 full checkpoint 元数据的 timestamp 作为基线目录定位依据。
+                    let checkpoint_created_at = match &meta.format {
+                        SnapshotFormat::Full { checkpoint_meta } => checkpoint_meta.timestamp,
+                        SnapshotFormat::Delta { .. } => meta.created_at,
+                    };
+
+                    let checkpoint_path = match &meta.format {
+                        SnapshotFormat::Full { checkpoint_meta } => checkpoint_meta
+                            .checkpoint_dir
+                            .join(checkpoint_meta.dir_name())
+                            .to_string_lossy()
+                            .to_string(),
+                        SnapshotFormat::Delta { .. } => {
+                            format!("target/checkpoints/checkpoint_{}", checkpoint_created_at)
+                        }
+                    };
+
+                    snapshot_state.last_checkpoint = Some(
+                        PersistedCheckpointMetadata::new(index, term, 0, checkpoint_created_at)
+                            .with_checkpoint_path(checkpoint_path),
+                    );
                     snapshot_state.delta_chain.clear();
                     snapshot_state.total_delta_bytes = 0;
                 }
@@ -460,7 +479,10 @@ impl LogEntry {
     }
 }
 
-/// Snapshot builder implementation - placeholder for Phase 1
+/// Snapshot builder compatibility shim kept for API stability.
+///
+/// TODO(breaking-change): remove this legacy type in a dedicated cleanup release.
+#[allow(dead_code)]
 pub struct SnapshotBuilderImpl {
     tree: Arc<Tree>,
 }

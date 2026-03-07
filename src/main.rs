@@ -94,6 +94,17 @@ async fn main() -> anyhow::Result<()> {
     // 8. 创建优雅关闭信号
     let shutdown_signal = ShutdownSignal::new();
 
+    if let Some(expected) = config.cluster.expected_voters {
+        let actual = config.cluster_members().len();
+        if expected != actual {
+            anyhow::bail!(
+                "cluster expected_voters mismatch at startup: expected={}, actual={}",
+                expected,
+                actual
+            );
+        }
+    }
+
     if config.cluster.bootstrap && raft_node.is_real_raft() {
         let members = config.cluster_members();
         info!(

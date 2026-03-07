@@ -1,5 +1,6 @@
 use super::cleanup::{CleanupReport, MergeCleanup};
 use super::policy::{DeltaMergePolicy, MergeTrigger};
+use super::{MERGE_ERR_INJECTED_FAILURE, MERGE_ERR_UNKNOWN};
 use crate::error::{Error, Result};
 use crate::metrics::MergeMetrics;
 use crate::state::{MergeProgressState, MetadataManager, SnapshotMetaState};
@@ -15,9 +16,15 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MergeExecution {
+    pub checkpoint_size_bytes: u64,
+    pub checkpoint_path: Option<String>,
+}
+
 #[async_trait]
 pub trait MergeBackend: Send + Sync {
-    async fn execute_merge(&self, snapshot_state: &SnapshotMetaState) -> Result<u64>;
+    async fn execute_merge(&self, snapshot_state: &SnapshotMetaState) -> Result<MergeExecution>;
 }
 
 #[derive(Debug, Default)]
@@ -25,9 +32,26 @@ pub struct MetadataOnlyMergeBackend;
 
 #[async_trait]
 impl MergeBackend for MetadataOnlyMergeBackend {
-    async fn execute_merge(&self, snapshot_state: &SnapshotMetaState) -> Result<u64> {
-        let bytes = snapshot_state.total_delta_bytes;
-        Ok(bytes)
+    async fn execute_merge(&self, snapshot_state: &SnapshotMetaState) -> Result<MergeExecution> {
+        Ok(MergeExecution {
+            checkpoint_size_bytes: snapshot_state.total_delta_bytes,
+            checkpoint_path: snapshot_state
+                .last_checkpoint
+                .as_ref()
+                .and_then(|cp| cp.checkpoint_path.clone()),
+        })
+    }
+}
+
+fn merge_error_code(err: &Error) -> String {
+    match err {
+        Error::Snapshot(msg) => msg
+            .split(':')
+            .next()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| MERGE_ERR_UNKNOWN.to_string()),
+        _ => MERGE_ERR_UNKNOWN.to_string(),
     }
 }
 
@@ -129,8 +153,12 @@ impl MergeExecutor {
 
             let snapshot_state = metadata.get_snapshot_state().await;
             match backend.execute_merge(&snapshot_state).await {
-                Ok(checkpoint_size_bytes) => {
-                    let merged_state = Self::build_merged_snapshot_state(snapshot_state, started);
+                Ok(exec) => {
+                    let merged_state = Self::build_merged_snapshot_state(
+                        snapshot_state,
+                        started,
+                        &exec.checkpoint_path,
+                    );
                     let progress = MergeProgressState::succeeded(
                         trigger.as_str().to_string(),
                         retries,
@@ -143,17 +171,23 @@ impl MergeExecutor {
                         .await?;
 
                     let cleanup_report = cleanup.run(&merged_state, Some(started)).await?;
-                    metrics.record_merge_success(trigger, retries, checkpoint_size_bytes, started);
+                    metrics.record_merge_success(
+                        trigger,
+                        retries,
+                        exec.checkpoint_size_bytes,
+                        started,
+                    );
 
                     return Ok(MergeTaskResult {
                         merged: true,
                         trigger: Some(trigger),
                         retries,
-                        checkpoint_size_bytes,
+                        checkpoint_size_bytes: exec.checkpoint_size_bytes,
                         cleanup_report,
                     });
                 }
                 Err(err) => {
+                    let error_code = merge_error_code(&err);
                     if retries >= max_retries {
                         metadata
                             .save_merge_progress_state(MergeProgressState::failed(
@@ -165,10 +199,10 @@ impl MergeExecutor {
                             ))
                             .await?;
 
-                        metrics.record_merge_failure(trigger, retries, started);
+                        metrics.record_merge_failure(trigger, retries, started, &error_code);
                         return Err(Error::Snapshot(format!(
-                            "merge failed after {} retries: {}",
-                            retries, err
+                            "{}: merge failed after {} retries: {}",
+                            error_code, retries, err
                         )));
                     }
                 }
@@ -176,12 +210,19 @@ impl MergeExecutor {
         }
     }
 
-    fn build_merged_snapshot_state(mut state: SnapshotMetaState, now: u64) -> SnapshotMetaState {
+    fn build_merged_snapshot_state(
+        mut state: SnapshotMetaState,
+        now: u64,
+        checkpoint_path: &Option<String>,
+    ) -> SnapshotMetaState {
         let end_index = state.delta_chain.last().map(|d| d.end_index);
 
         if let Some(cp) = state.last_checkpoint.as_mut() {
             cp.sequence_number = cp.sequence_number.saturating_add(1);
             cp.created_at = now;
+            cp.checkpoint_path = checkpoint_path
+                .clone()
+                .or_else(|| Some(format!("target/checkpoints/checkpoint_{}", now)));
             if let Some(end) = end_index {
                 cp.checkpoint_index = end;
             }
@@ -208,13 +249,22 @@ mod tests {
 
     #[async_trait]
     impl MergeBackend for FailThenOkBackend {
-        async fn execute_merge(&self, _snapshot_state: &SnapshotMetaState) -> Result<u64> {
+        async fn execute_merge(
+            &self,
+            _snapshot_state: &SnapshotMetaState,
+        ) -> Result<MergeExecution> {
             let mut guard = self.remaining_failures.lock().await;
             if *guard > 0 {
                 *guard -= 1;
-                return Err(Error::Snapshot("injected failure".to_string()));
+                return Err(Error::Snapshot(format!(
+                    "{}: injected failure",
+                    MERGE_ERR_INJECTED_FAILURE
+                )));
             }
-            Ok(4096)
+            Ok(MergeExecution {
+                checkpoint_size_bytes: 4096,
+                checkpoint_path: Some("target/checkpoints/checkpoint_test".to_string()),
+            })
         }
     }
 

@@ -17,11 +17,16 @@ pub mod policy {
     include!("merge/policy.rs");
 }
 
+pub mod error_codes {
+    include!("merge/error_codes.rs");
+}
+
 pub mod checkpoint_backend {
     include!("merge/checkpoint_backend.rs");
 }
 
 pub use checkpoint_backend::CheckpointMergeBackend;
 pub use cleanup::{CleanupReport, MergeCleanup, MergeCleanupConfig};
-pub use executor::{MergeBackend, MergeExecutor, MergeTaskHandle, MergeTaskResult};
+pub use error_codes::*;
+pub use executor::{MergeBackend, MergeExecution, MergeExecutor, MergeTaskHandle, MergeTaskResult};
 pub use policy::{DeltaMergePolicy, MergeDecision, MergeTrigger};
