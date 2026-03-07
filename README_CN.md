@@ -13,6 +13,11 @@
 - 支持配置驱动的多节点 bootstrap。
 - 三节点选主与复制集成测试已具备，并通过 feature 开关控制执行，提升 CI 稳定性。
 
+## 文档
+
+- 中文使用指南：`docs/USAGE_GUIDE_CN.md`
+- English Usage Guide: `docs/USAGE_GUIDE.md`
+
 ## 关键目录
 
 ```text
