@@ -2,6 +2,14 @@
 
 基于 `OpenRaft 0.10.0-alpha.15` 与 `SurrealKV` 的分布式 KV 项目。
 
+[![Build](https://github.com/houseme/openraft-surrealkv/workflows/Build/badge.svg)](https://github.com/houseme/openraft-surrealkv/actions?query=workflow%3ABuild)
+[![crates.io](https://img.shields.io/crates/v/openraft-surrealkv.svg)](https://crates.io/crates/openraft-surrealkv)
+[![docs.rs](https://docs.rs/openraft-surrealkv/badge.svg)](https://docs.rs/openraft-surrealkv/)
+[![License](https://img.shields.io/crates/l/openraft-surrealkv)](./LICENSE-APACHE)
+[![Downloads](https://img.shields.io/crates/d/openraft-surrealkv)](https://crates.io/crates/openraft-surrealkv)
+
+[English](README.md) | 简体中文
+
 ## 当前状态
 
 - 已接入真实 `openraft::Raft` 运行时。

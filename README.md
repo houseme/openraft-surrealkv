@@ -2,6 +2,14 @@
 
 A distributed key-value project built with `OpenRaft 0.10.0-alpha.15` and `SurrealKV`.
 
+[![Build](https://github.com/houseme/openraft-surrealkv/workflows/Build/badge.svg)](https://github.com/houseme/openraft-surrealkv/actions?query=workflow%3ABuild)
+[![crates.io](https://img.shields.io/crates/v/openraft-surrealkv.svg)](https://crates.io/crates/openraft-surrealkv)
+[![docs.rs](https://docs.rs/openraft-surrealkv/badge.svg)](https://docs.rs/openraft-surrealkv/)
+[![License](https://img.shields.io/crates/l/openraft-surrealkv)](./LICENSE-APACHE)
+[![Downloads](https://img.shields.io/crates/d/openraft-surrealkv)](https://crates.io/crates/openraft-surrealkv)
+
+English | [简体中文](README_CN.md)
+
 ## Status
 
 - Real `openraft::Raft` runtime is wired in.
