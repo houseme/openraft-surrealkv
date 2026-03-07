@@ -1,7 +1,7 @@
 use openraft_surrealkv::error::Result;
 use openraft_surrealkv::merge::{
-    CheckpointMergeBackend, DeltaMergePolicy, MergeBackend, MergeCleanup,
-    MergeCleanupConfig, MergeExecution, MergeExecutor, MERGE_ERR_INJECTED_FAILURE,
+    CheckpointMergeBackend, DeltaMergePolicy, MERGE_ERR_INJECTED_FAILURE, MergeBackend,
+    MergeCleanup, MergeCleanupConfig, MergeExecution, MergeExecutor,
 };
 use openraft_surrealkv::metrics::MergeMetrics;
 use openraft_surrealkv::snapshot::DeltaSnapshotCodec;
