@@ -1,6 +1,6 @@
 use crate::state::SnapshotMetaState;
 
-/// Merge policy configuration - three-dimensional thresholds.
+/// Define merge policy configuration with three-dimensional thresholds.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeltaMergePolicy {
     /// Maximum number of deltas in chain before triggering merge.
@@ -20,7 +20,7 @@ impl DeltaMergePolicy {
         }
     }
 
-    /// Evaluate merge trigger using strict priority:
+    /// Evaluate merge trigger using strict priority.
     /// Chain length > cumulative bytes > checkpoint time window.
     pub fn evaluate(
         &self,
@@ -31,7 +31,7 @@ impl DeltaMergePolicy {
         decision.trigger
     }
 
-    /// Fast boolean helper for hot path checks.
+    /// Return whether the current state should trigger merge.
     pub fn should_merge(&self, snapshot_state: &SnapshotMetaState, now_secs: u64) -> bool {
         self.evaluate(snapshot_state, now_secs).is_some()
     }
@@ -43,7 +43,7 @@ impl Default for DeltaMergePolicy {
     }
 }
 
-/// Merge trigger reason ordered by policy priority.
+/// Define merge trigger reasons ordered by policy priority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MergeTrigger {
     ChainTooLong,
@@ -61,7 +61,7 @@ impl MergeTrigger {
     }
 }
 
-/// Rich decision output used by tests and metrics labeling.
+/// Define rich merge decision output for tests and metrics labeling.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeDecision {
     pub trigger: Option<MergeTrigger>,

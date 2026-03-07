@@ -1,12 +1,14 @@
 //! Tonic gRPC network layer and Raft RPC implementation.
 //!
-//! This module provides:
-//! - RaftNetworkFactory for managing node connections
-//! - RaftNetwork implementation for node-to-node RPC communication
+//! Provide:
+//! - `RaftNetworkFactory` for managing node connections
+//! - `RaftNetwork` client implementation for node-to-node RPC communication
 //! - gRPC handlers for AppendEntries, RequestVote, and InstallSnapshot
-//! - Connection pooling, timeouts, and retries
+//! - connection pooling, timeouts, retries, and streaming snapshot support
 //!
-//! Streaming snapshot support.
+//! This module includes the following components:
+//! - [`client`]: Client-side gRPC abstractions and connection pooling.
+//! - [`server`]: Server-side gRPC handlers for Raft RPCs.
 
 use crate::types::{NodeId, RaftTypeConfig};
 use openraft::errors::{NetworkError, RPCError, ReplicationClosed, StreamingError};
@@ -136,7 +138,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
         let chunk_size = option.snapshot_chunk_size().unwrap_or(1024 * 1024).max(1);
         let bytes = snapshot.snapshot.into_inner();
         let mut offset = 0usize;
-        let mut last_vote = vote;
+        let mut last_vote = vote.clone();
 
         if bytes.is_empty() {
             let req = InstallSnapshotRequest {
@@ -159,7 +161,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
         while offset < bytes.len() {
             let end = std::cmp::min(offset + chunk_size, bytes.len());
             let req = InstallSnapshotRequest {
-                vote,
+                vote: vote.clone(),
                 meta: snapshot.meta.clone(),
                 offset: offset as u64,
                 data: bytes[offset..end].to_vec(),

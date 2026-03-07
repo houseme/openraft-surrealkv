@@ -2,31 +2,27 @@ use openraft_surrealkv::api::HttpServer;
 use openraft_surrealkv::app::RaftNode;
 use openraft_surrealkv::config::Config;
 use openraft_surrealkv::merge::DeltaMergePolicy;
-use openraft_surrealkv::metrics::{AppMetrics, init_prometheus_recorder};
-use openraft_surrealkv::network::GrpcRaftNetworkFactory;
+use openraft_surrealkv::metrics::{init_prometheus_recorder, AppMetrics};
 use openraft_surrealkv::network::server::{
-    ServerConfig as RaftServerConfig, start_server_with_shutdown,
+    start_server_with_shutdown, ServerConfig as RaftServerConfig,
 };
+use openraft_surrealkv::network::GrpcRaftNetworkFactory;
 use openraft_surrealkv::shutdown::ShutdownSignal;
 use openraft_surrealkv::storage::SurrealStorage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use surrealkv::TreeBuilder;
 use tracing::{error, info};
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. Load configuration
+    // Startup phase: load configuration and bootstrap observability.
     let config = Config::load()?;
 
-    // 2. Initialize logging
     init_logging(&config)?;
-
-    // 2.1 Run startup preflight checks (ports/directories)
     config.preflight_check()?;
 
-    // 2.2 Initialize Prometheus metrics exporter
     init_prometheus_recorder()?;
     let app_metrics = AppMetrics::new(config.node.node_id);
     app_metrics.raft.record_state("booting");
@@ -38,10 +34,9 @@ async fn main() -> anyhow::Result<()> {
         config.node.node_id
     );
 
-    // 3. Ensure data directory exists
+    // Startup phase: prepare storage backend and merge-recovery state.
     config.ensure_data_dir()?;
 
-    // 4. Create SurrealKV tree
     info!(
         "Initializing SurrealKV storage at {:?}",
         config.node.data_dir
@@ -52,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
             .build()?,
     );
 
-    // 5. Create storage and enable automatic merge (Phase 4)
+    // Startup phase: configure storage merge policy.
     let merge_policy = DeltaMergePolicy {
         max_chain_length: config.snapshot.max_delta_chain,
         max_delta_bytes: config.snapshot.max_delta_bytes_mb * 1024 * 1024,
@@ -65,12 +60,12 @@ async fn main() -> anyhow::Result<()> {
             .with_merge_policy(merge_policy, config.node.node_id.to_string()),
     );
 
-    // 6. Crash recovery for merge state (Phase 4)
+    // Startup phase: recover merge state after restart.
     info!("Running merge state recovery check...");
     storage.recover_merge_state().await?;
     info!("Merge state recovery completed");
 
-    // 7. Phase 5.2: create Raft node
+    // Startup phase: initialize Raft runtime and network wiring.
     info!("Creating Raft node (Phase 5.2)...");
     let network_factory = Arc::new(GrpcRaftNetworkFactory::new(Arc::new(
         StaticAddressResolver::new(config.resolver_addresses()),
@@ -86,12 +81,11 @@ async fn main() -> anyhow::Result<()> {
             error!("Failed to create Raft node: {}", e);
             error!("Continuing without Raft (will use storage directly)");
             app_metrics.raft.record_state("standalone");
-            // Continue startup, but HTTP handlers read/write storage directly
+            // Continue startup while HTTP handlers read/write storage directly.
             Arc::new(RaftNode::new_standalone(&config, storage.clone()).await?)
         }
     };
 
-    // 8. Create graceful shutdown signal
     let shutdown_signal = ShutdownSignal::new();
 
     if let Some(expected) = config.cluster.expected_voters {
@@ -118,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // 8.1 Start Raft gRPC service (real Raft mode only)
+    // Startup phase: launch external service endpoints.
     let mut raft_server_handle = None;
     let mut raft_shutdown_tx = None;
 
@@ -146,7 +140,6 @@ async fn main() -> anyhow::Result<()> {
         info!("Raft gRPC server disabled (standalone mode)");
     }
 
-    // 9. Start HTTP server (if enabled)
     let mut http_server_handle = None;
     if config.http.enabled {
         let http_server = HttpServer::with_raft(
@@ -166,7 +159,7 @@ async fn main() -> anyhow::Result<()> {
         }));
     }
 
-    // Startup self-check log
+    // Operations phase: publish startup diagnostics.
     let ready_probe = storage.read("__ready_probe__").await;
     let ready_details = match ready_probe {
         Ok(_) => "storage_ok latency=0ms".to_string(),
@@ -186,11 +179,13 @@ async fn main() -> anyhow::Result<()> {
         "🚀 Node startup self-check complete"
     );
 
+    // Operations phase: wait for termination signal.
     info!("Waiting for Ctrl+C");
     tokio::signal::ctrl_c().await?;
     shutdown_signal.shutdown();
     info!("Shutdown signal received, stopping services");
 
+    // Shutdown phase: stop external services and local runtime.
     if let Some(tx) = raft_shutdown_tx {
         let _ = tx.send(());
     }

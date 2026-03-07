@@ -5,13 +5,13 @@ use openraft::{BasicNode, LogId};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 
-/// NodeId type: 64-bit unsigned integer
+/// Define the node ID type as a 64-bit unsigned integer.
 pub type NodeId = u64;
 
-/// SnapshotData type: Cursor wrapper for AsyncRead/AsyncSeek support
+/// Define snapshot data as a cursor-backed byte buffer.
 pub type SnapshotData = Cursor<Vec<u8>>;
 
-/// KV request types
+/// Define key-value request variants.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum KVRequest {
     Set { key: String, value: Vec<u8> },
@@ -29,7 +29,7 @@ impl std::fmt::Display for KVRequest {
     }
 }
 
-/// KV response types
+/// Define key-value response variants.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum KVResponse {
     Ok,
@@ -47,7 +47,7 @@ impl std::fmt::Display for KVResponse {
     }
 }
 
-/// Placeholder responder used by the current OpenRaft type config.
+/// Define a placeholder responder used by the current OpenRaft type config.
 ///
 /// This implementation is intentionally no-op because write acknowledgements are
 /// currently handled in higher-level flows.
@@ -63,7 +63,7 @@ impl<T: Send + 'static> Responder<RaftTypeConfig, T> for Phase0Responder<T> {
     }
 }
 
-/// OpenRaft TypeConfig implementation for SurrealKV
+/// Define the OpenRaft `TypeConfig` implementation for SurrealKV
 ///
 /// This configuration uses:
 /// - KVRequest as the application request type
@@ -89,7 +89,7 @@ impl openraft::RaftTypeConfig for RaftTypeConfig {
     type ErrorSource = openraft::AnyError;
 }
 
-/// Delta entry format stored in incremental snapshots.
+/// Define the delta entry format stored in incremental snapshots.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DeltaEntry {
     pub term: u64,
@@ -108,7 +108,7 @@ impl DeltaEntry {
     }
 }
 
-/// Snapshot payload format used by current snapshot encoding.
+/// Define the snapshot payload format used by current snapshot encoding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SnapshotFormat {
     /// Full checkpoint snapshot (tar.zst bytes).
@@ -119,7 +119,7 @@ pub enum SnapshotFormat {
     Delta { base_index: u64, entry_count: u64 },
 }
 
-/// Delta metadata persisted in snapshot state for policy decisions.
+/// Define delta metadata persisted in snapshot state for policy decisions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeltaMetadata {
     pub format: SnapshotFormat,

@@ -1,12 +1,12 @@
 use crate::api::handlers::{
-    AppState, delete_key, get_key, health_check, put_key, ready_check, status,
+    delete_key, get_key, health_check, put_key, ready_check, status, AppState,
 };
 use crate::app::RaftNode;
 use crate::metrics::render_metrics;
 use crate::storage::SurrealStorage;
 use axum::{
-    Router,
     routing::{delete, get, post},
+    Router,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -16,18 +16,17 @@ use tower_http::{
 };
 use tracing::info;
 
-/// HTTP server wrapper for the application's REST API.
+/// Wrap the Axum router and listening address for the HTTP API server.
 ///
-/// This struct holds the Axum router and the listening address. The server exposes
-/// lightweight health/readiness endpoints and a simple KV CRUD API used for local
-/// testing and integration scenarios.
+/// Expose lightweight health/readiness endpoints and key-value CRUD routes
+/// for local development and integration scenarios.
 pub struct HttpServer {
     app: Router,
     addr: SocketAddr,
 }
 
 impl HttpServer {
-    /// Create a new HTTP server without a Raft node (Phase 5.1).
+    /// Create an HTTP server that serves storage directly (without a Raft handle).
     pub fn new(storage: Arc<SurrealStorage>, node_id: u64, port: u16) -> Self {
         let state = AppState {
             storage,
@@ -37,7 +36,7 @@ impl HttpServer {
         Self::with_app_state(state, port)
     }
 
-    /// Create an HTTP server backed by a RaftNode (Phase 5.2).
+    /// Create an HTTP server backed by a `RaftNode` write path.
     pub fn with_raft(
         storage: Arc<SurrealStorage>,
         raft_node: Arc<RaftNode>,
@@ -52,26 +51,24 @@ impl HttpServer {
         Self::with_app_state(state, port)
     }
 
-    /// Build the Axum Router and apply common middleware (CORS, tracing).
+    /// Build the Axum router and apply common middleware (CORS and tracing).
     fn with_app_state(state: AppState, port: u16) -> Self {
         let app = Router::new()
-            // KV API
+            // Key-value routes.
             .route("/kv/:key", get(get_key))
             .route("/kv/:key", post(put_key))
             .route("/kv/:key", delete(delete_key))
-            // Health check
+            // Probe and status routes.
             .route("/health", get(health_check))
-            // Readiness check
             .route("/ready", get(ready_check))
-            // Cluster status
             .route("/status", get(status))
-            // Metrics (provided by metrics-exporter-prometheus)
+            // Metrics route (served via metrics-exporter-prometheus).
             .route("/metrics", get(metrics_handler))
-            // State sharing
+            // Shared app state.
             .with_state(state)
-            // Middleware: CORS
+            // Middleware: CORS.
             .layer(CorsLayer::permissive())
-            // Middleware: Request tracing
+            // Middleware: request tracing.
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(DefaultMakeSpan::default().include_headers(true)),
@@ -81,8 +78,7 @@ impl HttpServer {
         Self { app, addr }
     }
 
-    /// Start serving requests on the configured address. This method blocks until
-    /// the server is shut down or an error occurs.
+    /// Serve requests on the configured address until shutdown or error.
     pub async fn serve(self) -> anyhow::Result<()> {
         info!("HTTP server listening on {}", self.addr);
 
@@ -96,7 +92,7 @@ impl HttpServer {
     }
 }
 
-/// GET /metrics - Prometheus metrics rendering endpoint
+/// Serve `GET /metrics` by rendering Prometheus exposition text.
 async fn metrics_handler() -> String {
     render_metrics()
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
-/// Configuration for the OpenRaft-SurrealKV distributed KV service.
+/// Define configuration for the OpenRaft-SurrealKV distributed KV service.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub node: NodeConfig,
@@ -17,88 +17,88 @@ pub struct Config {
     pub metrics: MetricsConfig,
 }
 
-/// Node configuration.
+/// Define node configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeConfig {
-    /// Node ID (1, 2, 3, ...)
+    /// Define the node ID (1, 2, 3, ...).
     pub node_id: u64,
-    /// gRPC listen address.
+    /// Define the gRPC listen address.
     pub listen_addr: String,
-    /// Data directory.
+    /// Define the data directory.
     pub data_dir: PathBuf,
 }
 
-/// HTTP API configuration.
+/// Define HTTP API configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HttpConfig {
-    /// Whether to enable the HTTP API.
+    /// Define whether to enable the HTTP API.
     pub enabled: bool,
-    /// HTTP listen port.
+    /// Define the HTTP listen port.
     pub port: u16,
 }
 
-/// Raft configuration.
+/// Define Raft configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RaftConfig {
-    /// Heartbeat interval (milliseconds).
+    /// Define the heartbeat interval (milliseconds).
     pub heartbeat_interval_ms: u64,
-    /// Election timeout (milliseconds).
+    /// Define the election timeout (milliseconds).
     pub election_timeout_ms: u64,
-    /// Maximum batched log entries per payload.
+    /// Define the maximum batched log entries per payload.
     pub max_payload_entries: u64,
 }
 
-/// Snapshot configuration.
+/// Define snapshot configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotConfig {
-    /// Checkpoint interval (seconds).
+    /// Define the checkpoint interval (seconds).
     pub checkpoint_interval_secs: u64,
-    /// Maximum delta chain length.
+    /// Define the maximum delta chain length.
     pub max_delta_chain: usize,
-    /// Maximum cumulative delta bytes (MB).
+    /// Define the maximum cumulative delta bytes (MB).
     pub max_delta_bytes_mb: u64,
 }
 
-/// Storage configuration.
+/// Define storage configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    /// Whether to enable compression.
+    /// Define whether to enable compression.
     pub enable_compression: bool,
-    /// Flush interval (milliseconds).
+    /// Define the flush interval (milliseconds).
     pub flush_interval_ms: u64,
 }
 
-/// Logging configuration.
+/// Define logging configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
-    /// Log level (`trace`/`debug`/`info`/`warn`/`error`).
+    /// Define the log level (`trace`/`debug`/`info`/`warn`/`error`).
     pub level: String,
-    /// Log output format (`json`/`text`).
+    /// Define the log output format (`json`/`text`).
     pub format: String,
 }
 
-/// Metrics configuration.
+/// Define metrics configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsConfig {
-    /// Whether to enable metrics export.
+    /// Define whether to enable metrics export.
     pub enabled: bool,
-    /// Metrics listen address.
+    /// Define the metrics listen address.
     pub listen_addr: String,
 }
 
-/// Cluster configuration (multi-node bootstrap/join).
+/// Define cluster configuration for bootstrap/join flows.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ClusterConfig {
-    /// Whether the current node performs bootstrap initialization.
+    /// Define whether the current node performs bootstrap initialization.
     pub bootstrap: bool,
-    /// Expected voter count (self + peers), used to prevent misconfiguration.
+    /// Define the expected voter count (self + peers) to prevent misconfiguration.
     pub expected_voters: Option<usize>,
-    /// Known cluster peers (excluding the current node).
+    /// Define known cluster peers (excluding the current node).
     #[serde(default)]
     pub peers: Vec<PeerConfig>,
 }
 
-/// Peer node configuration.
+/// Define peer node configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PeerConfig {
     pub node_id: u64,
@@ -144,32 +144,32 @@ impl Default for Config {
     }
 }
 
-/// Command-line arguments.
+/// Define command-line arguments.
 #[derive(Debug, Clone, Parser)]
 #[command(name = "openraft-surrealkv")]
 #[command(about = "OpenRaft + SurrealKV distributed KV service", long_about = None)]
 pub struct CliArgs {
-    /// Configuration file path.
+    /// Define the configuration file path.
     #[arg(short, long, value_name = "FILE")]
     pub config: Option<PathBuf>,
 
-    /// Node ID (overrides config file).
+    /// Define the node ID override.
     #[arg(long, env = "NODE_ID")]
     pub node_id: Option<u64>,
 
-    /// Listen address (overrides config file).
+    /// Define the listen address override.
     #[arg(long, env = "LISTEN_ADDR")]
     pub listen_addr: Option<String>,
 
-    /// Data directory (overrides config file).
+    /// Define the data directory override.
     #[arg(long, env = "DATA_DIR")]
     pub data_dir: Option<PathBuf>,
 
-    /// HTTP port (overrides config file).
+    /// Define the HTTP port override.
     #[arg(long, env = "HTTP_PORT")]
     pub http_port: Option<u16>,
 
-    /// Log level (overrides config file).
+    /// Define the log level override.
     #[arg(long, env = "LOG_LEVEL")]
     pub log_level: Option<String>,
 }
@@ -300,7 +300,7 @@ impl Config {
         Ok(())
     }
 
-    /// Startup preflight checks: writable directory and bindable ports.
+    /// Run startup preflight checks for writable directory and bindable ports.
     pub fn preflight_check(&self) -> anyhow::Result<()> {
         self.ensure_data_dir()?;
 

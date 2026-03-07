@@ -1,20 +1,20 @@
-//! OpenRaft + SurrealKV Distributed Consensus KV Storage System
+//! OpenRaft + SurrealKV distributed consensus KV storage.
 //!
 //! # Overview
 //!
-//! This crate implements a production-grade distributed KV storage system combining:
-//! - **OpenRaft 0.10.0-alpha.15** (default) or **openraft-legacy 0.10.0-alpha.15**: State-of-the-art Raft consensus
-//! - **SurrealKV 0.20+**: High-performance LSM-based KV engine for all storage layers
+//! Build a production-oriented distributed KV system by combining:
+//! - **OpenRaft 0.10.0-alpha.15** (default) or **openraft-legacy 0.10.0-alpha.15** for consensus
+//! - **SurrealKV 0.20+** as the LSM-based storage engine
 //!
 //! # Architecture
 //!
-//! The system is organized into modular layers:
+//! Organize the system into modular layers:
 //! - **Types** (`types.rs`): OpenRaft TypeConfig and KV operation types
-//! - **Storage** (`storage.rs`): Unified RaftLogStorage + RaftStateMachine implementation
-//! - **State** (`state.rs`): Persistent metadata management
-//! - **Snapshot** (`snapshot.rs`): Snapshot building and installation
-//! - **Network** (`network.rs`): Tonic gRPC network layer (Phase 1)
-//! - **Merge** (`merge.rs`): Hybrid delta merge strategy (Phase 4)
+//! - **Storage** (`storage.rs`): unified RaftLogStorage + RaftStateMachine implementation
+//! - **State** (`state.rs`): persistent metadata management
+//! - **Snapshot** (`snapshot.rs`): snapshot build/install pipeline
+//! - **Network** (`network.rs`): tonic gRPC transport for Raft RPCs
+//! - **Merge** (`merge.rs`): hybrid delta-merge strategy
 //!
 //! # Storage Layout
 //!
@@ -61,15 +61,13 @@ pub mod types;
 
 pub mod proto;
 
-// Phase 5: HTTP API and configuration management
+// HTTP and runtime-facing modules.
 pub mod api;
-pub mod config;
-
-// Phase 5.2: Raft node and application state
 pub mod app;
+pub mod config;
 pub mod shutdown;
 
-// Re-export commonly used types
+// Re-export commonly used types.
 pub use error::{RaftError, Result};
 pub use raft_adapter::RaftConfig;
 pub use types::{
@@ -77,10 +75,10 @@ pub use types::{
     SnapshotFormat,
 };
 
-// Phase 5 exports
+// Re-export runtime entry points.
 pub use app::RaftNode;
 pub use config::Config;
 pub use shutdown::ShutdownSignal;
 
-/// Library version
+/// Expose crate version from Cargo metadata.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

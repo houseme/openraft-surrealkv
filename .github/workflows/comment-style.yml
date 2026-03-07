@@ -1,0 +1,28 @@
+name: Comment Style (Non-blocking)
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doc-comment-scan:
+    name: Doc Comment Verb Scan
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
+      - name: Run non-blocking comment style scan
+        run: bash scripts/doc_comment_verb_scan.sh
+

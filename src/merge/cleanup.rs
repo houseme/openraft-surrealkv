@@ -11,7 +11,7 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
-/// Cleanup tuning knobs for merge artifacts.
+/// Define cleanup tuning knobs for merge artifacts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeCleanupConfig {
     /// Keep at most this many latest checkpoint directories.
@@ -45,7 +45,7 @@ pub struct CleanupReport {
     pub removed_checkpoint_dirs: usize,
 }
 
-/// Merge cleanup implementation.
+/// Run merge cleanup operations.
 #[derive(Debug, Clone, Default)]
 pub struct MergeCleanup {
     pub config: MergeCleanupConfig,
@@ -119,9 +119,7 @@ impl MergeCleanup {
                 .unwrap_or(0);
 
             if now.saturating_sub(modified_secs) >= self.config.max_temp_age_secs {
-                fs::remove_dir_all(entry.path())
-                    .await
-                    .map_err(Error::Io)?;
+                fs::remove_dir_all(entry.path()).await.map_err(Error::Io)?;
                 removed = removed.saturating_add(1);
             }
         }

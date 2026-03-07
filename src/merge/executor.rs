@@ -67,7 +67,7 @@ pub struct MergeTaskHandle {
     pub handle: JoinHandle<Result<MergeTaskResult>>,
 }
 
-/// Async merge executor with retry, persistence, and metrics.
+/// Run async merge execution with retry, persistence, and metrics.
 pub struct MergeExecutor {
     metadata: Arc<MetadataManager>,
     backend: Arc<dyn MergeBackend>,

@@ -13,12 +13,12 @@ use axum::http::header;
 use axum::middleware::Next;
 use axum::response::Response;
 use std::time::Duration;
-use tower::ServiceBuilder;
 use tower::limit::RateLimitLayer;
 use tower::timeout::TimeoutLayer;
+use tower::ServiceBuilder;
 use uuid::Uuid;
 
-/// Axum middleware function that ensures every request has an `x-request-id` header.
+/// Ensure every request has an `x-request-id` header.
 ///
 /// - If the incoming request already contains `x-request-id`, the same value is used.
 /// - Otherwise a new UUIDv4 is generated and added to the request headers and response headers.
@@ -63,11 +63,10 @@ pub fn rate_limit_layer(max_requests: u64, per: Duration) -> RateLimitLayer {
     RateLimitLayer::new(max_requests, per)
 }
 
-/// Convenience builder composing common middleware layers. The caller may add this to
-/// `Router::layer(service_builder)` or use the returned `ServiceBuilder` directly.
+/// Build a convenience `ServiceBuilder` with common middleware layers.
 ///
 /// This builder intentionally does not include tracing (TraceLayer) because the server
-/// already wires a `TraceLayer` with header inclusion — include it explicitly when needed.
+/// already wires a `TraceLayer` with header inclusion; include it explicitly when needed.
 pub type DefaultServiceBuilder =
     ServiceBuilder<tower::layer::util::Stack<TimeoutLayer, tower::layer::util::Identity>>;
 

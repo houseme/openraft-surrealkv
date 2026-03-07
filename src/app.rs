@@ -8,7 +8,7 @@ use openraft::rt::WatchReceiver;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// Raft node wrapper (Phase 5.2)
+/// Wrap Raft node state and runtime handles.
 pub struct RaftNode {
     pub is_standalone: bool,
     pub node_id: u64,
@@ -17,7 +17,7 @@ pub struct RaftNode {
 }
 
 impl RaftNode {
-    /// Create a new RaftNode and initialize the OpenRaft runtime.
+    /// Create a Raft node and initialize the OpenRaft runtime.
     ///
     /// - `config`: application configuration used to build Raft config
     /// - `storage`: storage adapter implementing OpenRaft traits
@@ -85,7 +85,7 @@ impl RaftNode {
         Ok(())
     }
 
-    /// Create a RaftNode in standalone mode (no Raft consensus).
+    /// Create a standalone Raft node without consensus.
     /// Useful for local development or single-node deployments.
     pub async fn new_standalone(
         config: &Config,
@@ -103,7 +103,7 @@ impl RaftNode {
         })
     }
 
-    /// Unified client write path.
+    /// Handle client writes through Raft with fallback to local apply.
     ///
     /// Tries to perform an OpenRaft `client_write` when Raft is enabled; if the call
     /// fails with common leader/forwarding errors, falls back to applying the request
