@@ -173,7 +173,6 @@ pub async fn wait_stable_single_leader(
 ) -> anyhow::Result<(u64, Vec<NodeStatus>)> {
     let deadline = tokio::time::Instant::now() + timeout;
     let mut stable_single_leader_rounds = 0usize;
-    let mut stable_roles = Vec::new();
 
     while tokio::time::Instant::now() < deadline {
         let roles = vec![
@@ -184,9 +183,8 @@ pub async fn wait_stable_single_leader(
 
         if leader_count(&roles) == 1 {
             stable_single_leader_rounds += 1;
-            stable_roles = roles;
             if stable_single_leader_rounds >= 3 {
-                let leader_id = leader_id_from_roles(&stable_roles)
+                let leader_id = leader_id_from_roles(&roles)
                     .ok_or_else(|| anyhow::anyhow!("leader not found after stable election"))?;
                 let status = snapshot_status(nodes).await;
                 return Ok((leader_id, status));

@@ -62,13 +62,16 @@ impl MergeCleanup {
         now: Option<u64>,
     ) -> Result<CleanupReport> {
         let now = now.unwrap_or_else(now_secs);
-        let mut report = CleanupReport::default();
 
-        report.removed_delta_files = self.cleanup_delta_files(snapshot_state, now).await?;
-        report.removed_temp_dirs = self.cleanup_temp_dirs(now).await?;
-        report.removed_checkpoint_dirs = self.cleanup_old_checkpoints().await?;
+        let removed_delta_files = self.cleanup_delta_files(snapshot_state, now).await?;
+        let removed_temp_dirs = self.cleanup_temp_dirs(now).await?;
+        let removed_checkpoint_dirs = self.cleanup_old_checkpoints().await?;
 
-        Ok(report)
+        Ok(CleanupReport {
+            removed_delta_files,
+            removed_temp_dirs,
+            removed_checkpoint_dirs,
+        })
     }
 
     async fn cleanup_delta_files(

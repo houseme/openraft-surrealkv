@@ -1,12 +1,12 @@
 use crate::api::handlers::{
-    delete_key, get_key, health_check, put_key, ready_check, status, AppState,
+    AppState, delete_key, get_key, health_check, put_key, ready_check, status,
 };
 use crate::app::RaftNode;
 use crate::metrics::render_metrics;
 use crate::storage::SurrealStorage;
 use axum::{
-    routing::{delete, get, post},
     Router,
+    routing::{delete, get, post},
 };
 use std::net::SocketAddr;
 use std::sync::Arc;

@@ -206,8 +206,10 @@ mod tests {
     #[test]
     fn test_raft_config_creation() {
         let config = Config::default();
-        let mut raft_config = openraft::Config::default();
-        raft_config.heartbeat_interval = config.raft.heartbeat_interval_ms;
+        let raft_config = openraft::Config {
+            heartbeat_interval: config.raft.heartbeat_interval_ms,
+            ..Default::default()
+        };
         assert_eq!(raft_config.heartbeat_interval, 500);
     }
 

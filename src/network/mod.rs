@@ -138,7 +138,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
         let chunk_size = option.snapshot_chunk_size().unwrap_or(1024 * 1024).max(1);
         let bytes = snapshot.snapshot.into_inner();
         let mut offset = 0usize;
-        let mut last_vote = vote.clone();
+        let mut last_vote = vote;
 
         if bytes.is_empty() {
             let req = InstallSnapshotRequest {
@@ -161,7 +161,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
         while offset < bytes.len() {
             let end = std::cmp::min(offset + chunk_size, bytes.len());
             let req = InstallSnapshotRequest {
-                vote: vote.clone(),
+                vote,
                 meta: snapshot.meta.clone(),
                 offset: offset as u64,
                 data: bytes[offset..end].to_vec(),
