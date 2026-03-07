@@ -1,10 +1,10 @@
-//! HTTP 中间件（占位符）
+//! HTTP middleware placeholders and extension points for the HTTP API.
 //!
-//! 未来可扩展：
-//! - 请求限流
-//! - 认证/授权
-//! - 请求 ID 追踪
-//! - 自定义错误处理
-
-// 当前 Phase 5.1 使用 tower-http 内置中间件
-// 未来可在此添加自定义中间件
+//! Potential future enhancements include:
+//! - request rate limiting
+//! - authentication and authorization
+//! - request-id tracing and correlation
+//! - centralized/custom error handling
+//!
+//! Current Phase 5.1 uses tower-http built-in middleware; custom middleware can be added here
+//! when needed to implement cross-cutting HTTP behaviors (observability, security, resilience).

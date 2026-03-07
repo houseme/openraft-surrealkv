@@ -1,4 +1,4 @@
-//! Raft Node 管理与初始化
+//! Raft Node management and initialization.
 
 use crate::config::Config;
 use crate::network::GrpcRaftNetworkFactory;
@@ -8,7 +8,7 @@ use openraft::rt::WatchReceiver;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-/// Raft 节点包装器（Phase 5.2）
+/// Raft node wrapper (Phase 5.2)
 pub struct RaftNode {
     pub is_standalone: bool,
     pub node_id: u64,
@@ -17,7 +17,11 @@ pub struct RaftNode {
 }
 
 impl RaftNode {
-    /// 创建新的 Raft Node
+    /// Create a new RaftNode and initialize the OpenRaft runtime.
+    ///
+    /// - `config`: application configuration used to build Raft config
+    /// - `storage`: storage adapter implementing OpenRaft traits
+    /// - `network_factory`: gRPC network factory used by Raft for RPCs
     pub async fn new(
         config: &Config,
         storage: Arc<SurrealStorage>,
@@ -56,6 +60,12 @@ impl RaftNode {
         })
     }
 
+    /// Initialize the Raft cluster with the given members.
+    ///
+    /// - `members`: a map of node IDs to `BasicNode` instances representing the cluster members.
+    ///   The current node must be included in the members with its correct ID.
+    ///
+    /// Returns an error if the members list is empty or if the current node is not included.
     pub async fn initialize_cluster(
         &self,
         members: BTreeMap<u64, openraft::BasicNode>,
@@ -75,7 +85,8 @@ impl RaftNode {
         Ok(())
     }
 
-    /// 创建单机模式（无 Raft，仅存储）
+    /// Create a RaftNode in standalone mode (no Raft consensus).
+    /// Useful for local development or single-node deployments.
     pub async fn new_standalone(
         config: &Config,
         storage: Arc<SurrealStorage>,
@@ -92,7 +103,11 @@ impl RaftNode {
         })
     }
 
-    /// 统一客户端写路径（优先真实 OpenRaft client_write，失败时 fallback）。
+    /// Unified client write path.
+    ///
+    /// Tries to perform an OpenRaft `client_write` when Raft is enabled; if the call
+    /// fails with common leader/forwarding errors, falls back to applying the request
+    /// directly to the local state machine (useful for standalone mode or transient leader issues).
     pub async fn client_write(&self, req: KVRequest) -> anyhow::Result<KVResponse> {
         if let Some(raft) = &self.raft {
             match raft.client_write(req.clone()).await {

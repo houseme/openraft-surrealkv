@@ -136,7 +136,7 @@ impl SurrealStorage {
         let progress = self.metadata.get_merge_progress_state().await;
 
         if !progress.in_progress {
-            // 合并已完成或从未开始，无需恢复
+            // Merge was not in progress or already finished — no action required
             return Ok(());
         }
 
@@ -148,7 +148,8 @@ impl SurrealStorage {
             "detected incomplete merge task from previous session, attempting recovery"
         );
 
-        // 检查是否已达最大重试次数
+        // If the retry count has already exceeded the configured max, clear the state to
+        // allow future merge attempts to start fresh. This protects from perpetual retry loops.
         if progress.attempt >= progress.max_retries {
             error!(
                 trigger = progress.trigger_reason.as_deref().unwrap_or("unknown"),
@@ -158,7 +159,7 @@ impl SurrealStorage {
                 "merge task exhausted retries, clearing state to allow future merge"
             );
 
-            // 清除失败状态，允许后续新的合并
+            // Clear the persisted failure state so subsequent snapshot builds may trigger a new merge
             use crate::state::MergeProgressState;
             self.metadata
                 .save_merge_progress_state(MergeProgressState::new())
@@ -166,7 +167,7 @@ impl SurrealStorage {
             return Ok(());
         }
 
-        // 如果有 merge_executor 配置，尝试重新启动合并
+        // If a merge executor is configured, try to re-spawn the merge task according to policy.
         if let Some(executor) = &self.merge_executor {
             match executor.spawn_if_needed().await {
                 Ok(Some(handle)) => {
@@ -177,7 +178,7 @@ impl SurrealStorage {
                 }
                 Ok(None) => {
                     tracing::info!("merge recovery skipped: policy conditions no longer met");
-                    // 策略不再满足，清除进行中状态
+                    // Policy no longer satisfied — clear in-progress flag to avoid repeated attempts
                     use crate::state::MergeProgressState;
                     self.metadata
                         .save_merge_progress_state(MergeProgressState::new())

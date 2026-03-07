@@ -2,68 +2,79 @@ use crate::app::RaftNode;
 use crate::storage::SurrealStorage;
 use crate::types::KVRequest;
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-/// 应用状态（共享给所有 HTTP 处理器）
+/// Application state shared across HTTP handlers.
+///
+/// This struct is intentionally lightweight and contains:
+/// - `storage`: SurrealStorage instance used for reads/writes
+/// - `raft_node`: optional RaftNode handle (present when cluster features are enabled)
+/// - `node_id`: numeric ID for the running node (useful for health/debug endpoints)
 #[derive(Clone)]
 pub struct AppState {
     pub storage: Arc<SurrealStorage>,
-    pub raft_node: Option<Arc<RaftNode>>, // Phase 5.2: Raft Node (可选，如果启用)
+    pub raft_node: Option<Arc<RaftNode>>, // Phase 5.2: Raft Node (optional when enabled)
     pub node_id: u64,
 }
 
-/// API 错误响应
+/// API error response body returned to clients.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub error: String,
 }
 
-/// API 成功响应
+/// Simple success envelope for write operations.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SuccessResponse {
     pub message: String,
 }
 
-/// KV 值响应
+/// Value response for GET /kv/:key. Encodes binary payload as Base64.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ValueResponse {
-    pub value: String, // Base64 编码的值
+    /// Base64-encoded value bytes
+    pub value: String,
 }
 
-/// 健康检查响应
+/// Health probe response (synthetic quick check).
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HealthResponse {
     pub status: String,
     pub node_id: u64,
 }
 
-/// 就绪详情
+/// Detailed readiness information returned by GET /ready.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReadyDetails {
+    /// Measured probe latency in milliseconds
     pub probe_latency_ms: u64,
+    /// Last observed error from the probe, if any
     pub last_error: Option<String>,
+    /// Timestamp when the ready check ran (unix ms)
     pub checked_at_unix_ms: u64,
 }
 
-/// 就绪检查响应
+/// Readiness envelope.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ReadyResponse {
     pub ready: bool,
+    /// Human-readable readiness mode, e.g. "process+storage"
     pub mode: String,
     pub node_id: u64,
     pub details: ReadyDetails,
 }
 
-/// 状态响应
+/// Node/cluster status returned by GET /status.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StatusResponse {
     pub node_id: u64,
+    /// Role as string: Leader, Follower, Candidate, Standalone, etc.
     pub role: String,
     pub term: u64,
     pub applied_index: u64,
