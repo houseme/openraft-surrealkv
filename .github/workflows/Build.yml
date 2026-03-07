@@ -9,7 +9,7 @@ on:
     # The branches below must be a subset of the branches above
     branches: [ "main" ]
   schedule:
-    - cron: "0 3 * * 1" # 每周一凌晨 3 点构建一次
+    - cron: "0 3 * * 1" # Build every Monday at 3 am
 
 jobs:
   check:
@@ -22,6 +22,11 @@ jobs:
         rustc: [ nightly, stable ] # MSVR and current stable rustc
     steps:
       - uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rustc }}
@@ -150,6 +155,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx

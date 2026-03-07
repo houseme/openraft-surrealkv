@@ -10,6 +10,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "33.1"
+          repo-token: ${{ inputs.github-token }}
       - name: Run audit check
         uses: rustsec/audit-check@v2
         with:
