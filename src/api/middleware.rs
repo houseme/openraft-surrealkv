@@ -1,10 +1,77 @@
-//! HTTP middleware placeholders and extension points for the HTTP API.
+//! HTTP middleware utilities and common extension points for the HTTP API.
 //!
-//! Potential future enhancements include:
-//! - request rate limiting
-//! - authentication and authorization
-//! - request-id tracing and correlation
-//! - centralized/custom error handling
+//! Provides a small set of reusable middleware helpers that the HTTP server can opt-in to.
 //!
-//! Current Phase 5.1 uses tower-http built-in middleware; custom middleware can be added here
-//! when needed to implement cross-cutting HTTP behaviors (observability, security, resilience).
+//! Included helpers:
+//! - `request_id_middleware`: generates/propagates `x-request-id` and attaches it to request extensions
+//! - `timeout_layer`: convenience constructor for `tower::timeout::TimeoutLayer`
+//! - `rate_limit_layer`: convenience constructor for `tower::limit::RateLimitLayer`
+//! - `default_service_builder`: a small composition of commonly used layers (trace left to caller)
+
+use axum::http::{header, Request, Response};
+use axum::middleware::Next;
+use std::time::Duration;
+use tower::limit::RateLimitLayer;
+use tower::timeout::TimeoutLayer;
+use tower::ServiceBuilder;
+use uuid::Uuid;
+
+/// Axum middleware function that ensures every request has an `x-request-id` header.
+///
+/// - If the incoming request already contains `x-request-id`, the same value is used.
+/// - Otherwise a new UUIDv4 is generated and added to the request headers and response headers.
+///
+/// The generated request-id is also stored in request extensions under the header name, so
+/// handlers and other middleware can retrieve it via `req.extensions()`.
+pub async fn request_id_middleware<B>(mut req: Request<B>, next: Next<B>) -> Response
+where
+    B: Send + 'static,
+{
+    // Check existing header
+    let req_id = req
+        .headers()
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+    // Insert into request extensions for downstream access
+    req.extensions_mut().insert(req_id.clone());
+
+    // Continue processing
+    let mut resp = next.run(req).await;
+
+    // Ensure response contains the request-id header for correlation
+    if resp.headers().get("x-request-id").is_none() {
+        resp.headers_mut().insert(
+            header::HeaderName::from_static("x-request-id"),
+            header::HeaderValue::from_str(&req_id).unwrap(),
+        );
+    }
+
+    resp
+}
+
+/// Create a `TimeoutLayer` with the provided duration.
+pub fn timeout_layer(dur: Duration) -> TimeoutLayer {
+    TimeoutLayer::new(dur)
+}
+
+/// Create a `RateLimitLayer` permitting `max_requests` requests per `per` duration.
+///
+/// Note: This is a simple per-service rate limiter using `tower::limit::RateLimitLayer`.
+pub fn rate_limit_layer(max_requests: u64, per: Duration) -> RateLimitLayer {
+    RateLimitLayer::new(max_requests, per)
+}
+
+/// Convenience builder composing common middleware layers. The caller may add this to
+/// `Router::layer(service_builder)` or use the returned `ServiceBuilder` directly.
+///
+/// This builder intentionally does not include tracing (TraceLayer) because the server
+/// already wires a `TraceLayer` with header inclusion — include it explicitly when needed.
+pub fn default_service_builder(node_id: impl Into<String>) -> ServiceBuilder {
+    let _node = node_id.into();
+    ServiceBuilder::new()
+        // Keep a short default timeout to protect handlers from lingering
+        .layer(TimeoutLayer::new(Duration::from_secs(15)))
+}

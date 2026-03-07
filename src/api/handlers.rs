@@ -2,10 +2,10 @@ use crate::app::RaftNode;
 use crate::storage::SurrealStorage;
 use crate::types::KVRequest;
 use axum::{
-    Json,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -80,7 +80,7 @@ pub struct StatusResponse {
     pub applied_index: u64,
 }
 
-/// GET /kv/:key - 读取键值
+/// GET /kv/:key - read a key value from the local state machine
 pub async fn get_key(
     State(state): State<AppState>,
     Path(key): Path<String>,
@@ -99,7 +99,7 @@ pub async fn get_key(
     }
 }
 
-/// POST /kv/:key - 写入键值（Phase 5.2: 通过 RaftNode client_write 路径）
+/// POST /kv/:key - write a key value (Phase 5.2: through RaftNode client_write when enabled)
 pub async fn put_key(
     State(state): State<AppState>,
     Path(key): Path<String>,
@@ -128,7 +128,7 @@ pub async fn put_key(
     }))
 }
 
-/// DELETE /kv/:key - 删除键值（Phase 5.2: 通过 RaftNode client_write 路径）
+/// DELETE /kv/:key - delete a key (Phase 5.2: through RaftNode client_write when enabled)
 pub async fn delete_key(
     State(state): State<AppState>,
     Path(key): Path<String>,
@@ -153,7 +153,7 @@ pub async fn delete_key(
     }))
 }
 
-/// GET /health - 健康检查
+/// GET /health - lightweight health probe
 pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
     Json(HealthResponse {
         status: "healthy".to_string(),
@@ -161,7 +161,7 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
     })
 }
 
-/// GET /ready - 就绪检查
+/// GET /ready - readiness probe
 pub async fn ready_check(State(state): State<AppState>) -> Json<ReadyResponse> {
     // Option A: 仅进程 + 存储可用即 ready。
     let started = std::time::Instant::now();
@@ -189,12 +189,12 @@ pub async fn ready_check(State(state): State<AppState>) -> Json<ReadyResponse> {
     })
 }
 
-/// GET /status - Raft 集群状态
+/// GET /status - Raft cluster/node status
 pub async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
     let applied = state.storage.metadata().get_applied_state().await;
     let voting = state.storage.metadata().get_voting_state().await;
 
-    // Phase 5.2: 从 Raft Node 获取实际角色
+    // Phase 5.2: obtain role and term from RaftNode when available
     let (role, term) = if let Some(raft_node) = &state.raft_node {
         let role = raft_node.current_role().await;
         let term = raft_node.current_term().await;
@@ -211,7 +211,7 @@ pub async fn status(State(state): State<AppState>) -> Json<StatusResponse> {
     })
 }
 
-/// 应用错误类型
+/// Application-level error types returned by handlers
 #[derive(Debug)]
 pub enum AppError {
     NotFound(String),
