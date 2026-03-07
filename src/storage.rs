@@ -11,9 +11,9 @@ use crate::error::{Error, Result};
 use crate::merge::{
     CheckpointMergeBackend, DeltaMergePolicy, MergeCleanup, MergeCleanupConfig, MergeExecutor,
 };
-use crate::metrics::{record_snapshot_strict_error, MergeMetrics, SnapshotStage};
+use crate::metrics::{MergeMetrics, SnapshotStage, record_snapshot_strict_error};
 use crate::snapshot::{
-    decode_snapshot_payload, DecodedSnapshotPayload, RaftSnapshotBuilder, SnapshotBuildConfig,
+    DecodedSnapshotPayload, RaftSnapshotBuilder, SnapshotBuildConfig, decode_snapshot_payload,
 };
 use crate::state::{
     AppliedState, CheckpointMetadata as PersistedCheckpointMetadata, DeltaInfo, MetadataManager,

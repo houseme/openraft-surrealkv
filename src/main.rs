@@ -2,18 +2,18 @@ use openraft_surrealkv::api::HttpServer;
 use openraft_surrealkv::app::RaftNode;
 use openraft_surrealkv::config::Config;
 use openraft_surrealkv::merge::DeltaMergePolicy;
-use openraft_surrealkv::metrics::{init_prometheus_recorder, AppMetrics};
-use openraft_surrealkv::network::server::{
-    start_server_with_shutdown, ServerConfig as RaftServerConfig,
-};
+use openraft_surrealkv::metrics::{AppMetrics, init_prometheus_recorder};
 use openraft_surrealkv::network::GrpcRaftNetworkFactory;
+use openraft_surrealkv::network::server::{
+    ServerConfig as RaftServerConfig, start_server_with_shutdown,
+};
 use openraft_surrealkv::shutdown::ShutdownSignal;
 use openraft_surrealkv::storage::SurrealStorage;
 use std::collections::HashMap;
 use std::sync::Arc;
 use surrealkv::TreeBuilder;
 use tracing::{error, info};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

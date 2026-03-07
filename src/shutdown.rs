@@ -1,7 +1,7 @@
 //! Graceful shutdown signal management
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Shutdown signal.
 #[derive(Clone)]

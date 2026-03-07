@@ -13,9 +13,9 @@ use axum::http::header;
 use axum::middleware::Next;
 use axum::response::Response;
 use std::time::Duration;
+use tower::ServiceBuilder;
 use tower::limit::RateLimitLayer;
 use tower::timeout::TimeoutLayer;
-use tower::ServiceBuilder;
 use uuid::Uuid;
 
 /// Axum middleware function that ensures every request has an `x-request-id` header.

@@ -1,9 +1,9 @@
 use openraft_surrealkv::app::RaftNode;
 use openraft_surrealkv::config::{ClusterConfig, Config, PeerConfig};
 use openraft_surrealkv::merge::DeltaMergePolicy;
-use openraft_surrealkv::network::client::AddressResolver;
-use openraft_surrealkv::network::server::{start_server_with_shutdown, ServerConfig};
 use openraft_surrealkv::network::GrpcRaftNetworkFactory;
+use openraft_surrealkv::network::client::AddressResolver;
+use openraft_surrealkv::network::server::{ServerConfig, start_server_with_shutdown};
 use openraft_surrealkv::storage::SurrealStorage;
 use std::collections::{HashMap, HashSet};
 use std::net::TcpListener;

@@ -2,10 +2,10 @@ use crate::app::RaftNode;
 use crate::storage::SurrealStorage;
 use crate::types::KVRequest;
 use axum::{
+    Json,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

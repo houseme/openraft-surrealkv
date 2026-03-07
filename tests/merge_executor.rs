@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use openraft_surrealkv::error::{Error, Result};
 use openraft_surrealkv::merge::{
-    DeltaMergePolicy, MergeBackend, MergeCleanup, MergeCleanupConfig, MergeExecution,
-    MergeExecutor, MERGE_ERR_INJECTED_FAILURE,
+    DeltaMergePolicy, MERGE_ERR_INJECTED_FAILURE, MergeBackend, MergeCleanup, MergeCleanupConfig,
+    MergeExecution, MergeExecutor,
 };
 use openraft_surrealkv::metrics::MergeMetrics;
 use openraft_surrealkv::state::{
