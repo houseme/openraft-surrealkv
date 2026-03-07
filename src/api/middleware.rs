@@ -8,8 +8,10 @@
 //! - `rate_limit_layer`: convenience constructor for `tower::limit::RateLimitLayer`
 //! - `default_service_builder`: a small composition of commonly used layers (trace left to caller)
 
-use axum::http::{header, Request, Response};
+use axum::extract::Request;
+use axum::http::header;
 use axum::middleware::Next;
+use axum::response::Response;
 use std::time::Duration;
 use tower::limit::RateLimitLayer;
 use tower::timeout::TimeoutLayer;
@@ -23,10 +25,7 @@ use uuid::Uuid;
 ///
 /// The generated request-id is also stored in request extensions under the header name, so
 /// handlers and other middleware can retrieve it via `req.extensions()`.
-pub async fn request_id_middleware<B>(mut req: Request<B>, next: Next<B>) -> Response
-where
-    B: Send + 'static,
-{
+pub async fn request_id_middleware(mut req: Request, next: Next) -> Response {
     // Check existing header
     let req_id = req
         .headers()
@@ -43,10 +42,10 @@ where
 
     // Ensure response contains the request-id header for correlation
     if resp.headers().get("x-request-id").is_none() {
-        resp.headers_mut().insert(
-            header::HeaderName::from_static("x-request-id"),
-            header::HeaderValue::from_str(&req_id).unwrap(),
-        );
+        if let Ok(value) = header::HeaderValue::from_str(&req_id) {
+            resp.headers_mut()
+                .insert(header::HeaderName::from_static("x-request-id"), value);
+        }
     }
 
     resp
@@ -69,7 +68,10 @@ pub fn rate_limit_layer(max_requests: u64, per: Duration) -> RateLimitLayer {
 ///
 /// This builder intentionally does not include tracing (TraceLayer) because the server
 /// already wires a `TraceLayer` with header inclusion — include it explicitly when needed.
-pub fn default_service_builder(node_id: impl Into<String>) -> ServiceBuilder {
+pub type DefaultServiceBuilder =
+    ServiceBuilder<tower::layer::util::Stack<TimeoutLayer, tower::layer::util::Identity>>;
+
+pub fn default_service_builder(node_id: impl Into<String>) -> DefaultServiceBuilder {
     let _node = node_id.into();
     ServiceBuilder::new()
         // Keep a short default timeout to protect handlers from lingering

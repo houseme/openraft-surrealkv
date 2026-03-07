@@ -158,7 +158,7 @@ impl RaftNode {
         Ok(())
     }
 
-    /// 获取当前任期
+    /// Return the current Raft term.
     pub async fn current_term(&self) -> u64 {
         if let Some(raft) = &self.raft {
             let metrics = raft.metrics();
@@ -167,7 +167,7 @@ impl RaftNode {
         0
     }
 
-    /// 获取当前角色（Leader/Follower/Candidate）
+    /// Return the current node role (Leader/Follower/Candidate).
     pub async fn current_role(&self) -> String {
         if let Some(raft) = &self.raft {
             let metrics = raft.metrics();
@@ -181,7 +181,7 @@ impl RaftNode {
         }
     }
 
-    /// 获取已应用索引
+    /// Return the last applied log index.
     pub async fn applied_index(&self) -> u64 {
         self.storage
             .metadata()
@@ -190,7 +190,7 @@ impl RaftNode {
             .last_applied_index
     }
 
-    /// 读取状态机中的 key（主要用于集成测试与诊断）
+    /// Read a key from the state machine (primarily for integration tests and diagnostics).
     pub async fn read_key(&self, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
         self.storage
             .read(key)

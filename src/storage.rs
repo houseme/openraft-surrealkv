@@ -303,7 +303,7 @@ impl SurrealStorage {
                         .map(|x| (x.index, **x.committed_leader_id()))
                         .unwrap_or((0, 0));
 
-                    // 使用 full checkpoint 元数据的 timestamp 作为基线目录定位依据。
+                    // Use the full-checkpoint timestamp as the baseline directory locator.
                     let checkpoint_created_at = match &meta.format {
                         SnapshotFormat::Full { checkpoint_meta } => checkpoint_meta.timestamp,
                         SnapshotFormat::Delta { .. } => meta.created_at,
@@ -356,7 +356,7 @@ impl SurrealStorage {
                     trigger = handle.trigger.as_str(),
                     "background merge task spawned after snapshot creation"
                 );
-                // 不等待合并完成，立即返回 snapshot（非阻塞）
+                // Return snapshot immediately; merge continues in background (non-blocking).
             }
         }
 

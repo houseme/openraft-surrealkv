@@ -17,16 +17,16 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. 加载配置
+    // 1. Load configuration
     let config = Config::load()?;
 
-    // 2. 初始化日志系统
+    // 2. Initialize logging
     init_logging(&config)?;
 
-    // 2.1 启动前自检（端口/目录）
+    // 2.1 Run startup preflight checks (ports/directories)
     config.preflight_check()?;
 
-    // 2.2 初始化 Prometheus 指标导出器
+    // 2.2 Initialize Prometheus metrics exporter
     init_prometheus_recorder()?;
     let app_metrics = AppMetrics::new(config.node.node_id);
     app_metrics.raft.record_state("booting");
@@ -38,10 +38,10 @@ async fn main() -> anyhow::Result<()> {
         config.node.node_id
     );
 
-    // 3. 创建数据目录
+    // 3. Ensure data directory exists
     config.ensure_data_dir()?;
 
-    // 4. 创建 SurrealKV Tree
+    // 4. Create SurrealKV tree
     info!(
         "Initializing SurrealKV storage at {:?}",
         config.node.data_dir
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
             .build()?,
     );
 
-    // 5. 创建 Storage 并启用自动合并（Phase 4）
+    // 5. Create storage and enable automatic merge (Phase 4)
     let merge_policy = DeltaMergePolicy {
         max_chain_length: config.snapshot.max_delta_chain,
         max_delta_bytes: config.snapshot.max_delta_bytes_mb * 1024 * 1024,
@@ -65,12 +65,12 @@ async fn main() -> anyhow::Result<()> {
             .with_merge_policy(merge_policy, config.node.node_id.to_string()),
     );
 
-    // 6. 崩溃恢复（Phase 4）
+    // 6. Crash recovery for merge state (Phase 4)
     info!("Running merge state recovery check...");
     storage.recover_merge_state().await?;
     info!("Merge state recovery completed");
 
-    // 7. Phase 5.2: 创建 Raft Node
+    // 7. Phase 5.2: create Raft node
     info!("Creating Raft node (Phase 5.2)...");
     let network_factory = Arc::new(GrpcRaftNetworkFactory::new(Arc::new(
         StaticAddressResolver::new(config.resolver_addresses()),
@@ -86,12 +86,12 @@ async fn main() -> anyhow::Result<()> {
             error!("Failed to create Raft node: {}", e);
             error!("Continuing without Raft (will use storage directly)");
             app_metrics.raft.record_state("standalone");
-            // 继续运行，但 HTTP handlers 将使用存储直接读写
+            // Continue startup, but HTTP handlers read/write storage directly
             Arc::new(RaftNode::new_standalone(&config, storage.clone()).await?)
         }
     };
 
-    // 8. 创建优雅关闭信号
+    // 8. Create graceful shutdown signal
     let shutdown_signal = ShutdownSignal::new();
 
     if let Some(expected) = config.cluster.expected_voters {
@@ -118,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    // 8.1 启动 Raft gRPC 服务（仅真实 Raft 模式）
+    // 8.1 Start Raft gRPC service (real Raft mode only)
     let mut raft_server_handle = None;
     let mut raft_shutdown_tx = None;
 
@@ -146,7 +146,7 @@ async fn main() -> anyhow::Result<()> {
         info!("Raft gRPC server disabled (standalone mode)");
     }
 
-    // 9. 启动 HTTP 服务器（如果启用）
+    // 9. Start HTTP server (if enabled)
     let mut http_server_handle = None;
     if config.http.enabled {
         let http_server = HttpServer::with_raft(
@@ -166,7 +166,7 @@ async fn main() -> anyhow::Result<()> {
         }));
     }
 
-    // 启动自检日志
+    // Startup self-check log
     let ready_probe = storage.read("__ready_probe__").await;
     let ready_details = match ready_probe {
         Ok(_) => "storage_ok latency=0ms".to_string(),
@@ -211,12 +211,12 @@ async fn main() -> anyhow::Result<()> {
     }
 
     info!("Shutting down gracefully...");
-    // TODO: 优雅关闭逻辑
+    // TODO: graceful shutdown flow
 
     Ok(())
 }
 
-/// 初始化日志系统
+/// Initialize logging subsystem.
 fn init_logging(config: &Config) -> anyhow::Result<()> {
     let env_filter =
         EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new(&config.logging.level))?;
@@ -237,7 +237,7 @@ fn init_logging(config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 静态地址解析器（来自配置）
+/// Static address resolver loaded from config.
 struct StaticAddressResolver {
     addresses: HashMap<u64, String>,
 }
