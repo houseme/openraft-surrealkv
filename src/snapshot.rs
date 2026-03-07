@@ -461,11 +461,13 @@ impl RaftSnapshotBuilder {
 mod tests {
     use super::*;
     use crate::state::{CheckpointMetadata as PersistedCheckpointMetadata, SnapshotMetaState};
+    use serial_test::serial;
     use surrealkv::TreeBuilder;
     use tempfile::TempDir;
     use tokio::fs;
 
     #[tokio::test]
+    #[serial]
     async fn test_snapshot_builder_creation() {
         let tree = Arc::new(
             TreeBuilder::new()
@@ -485,6 +487,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_build_and_install_snapshot_pipeline() {
         let base = TempDir::new().unwrap();
         let tree = Arc::new(
@@ -529,6 +532,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_decode_snapshot_payload_full_and_delta() {
         let delta_entries = vec![DeltaEntry::new(1, 2, postcard::to_stdvec(&"x").unwrap())];
         let compressed = DeltaSnapshotCodec::encode_entries(&delta_entries).unwrap();
@@ -570,6 +574,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_decode_snapshot_payload_v1_compatibility() {
         let entries = vec![DeltaEntry::new(
             1,
@@ -614,6 +619,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_should_build_delta_5mb_threshold() {
         let mut snapshot_state = SnapshotMetaState::new();
         snapshot_state.last_checkpoint =
@@ -635,6 +641,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_decode_delta_entries_from_payload() {
         let entries = vec![DeltaEntry::new(1, 11, postcard::to_stdvec(&"x").unwrap())];
         let compressed = DeltaSnapshotCodec::encode_entries(&entries).unwrap();
