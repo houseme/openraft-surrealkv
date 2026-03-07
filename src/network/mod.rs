@@ -80,7 +80,7 @@ pub struct GrpcRaftNetwork {
 }
 
 impl GrpcRaftNetwork {
-    fn to_rpc_err(err: &crate::error::Error) -> RPCError<RaftTypeConfig> {
+    fn convert_to_rpc_error(err: &crate::error::Error) -> RPCError<RaftTypeConfig> {
         RPCError::Network(NetworkError::new(err))
     }
 }
@@ -95,12 +95,12 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
             .connection_pool
             .get_client(self.target)
             .await
-            .map_err(|e| Self::to_rpc_err(&e))?;
+            .map_err(|e| Self::convert_to_rpc_error(&e))?;
 
         client
             .append_entries(req)
             .await
-            .map_err(|e| Self::to_rpc_err(&e))
+            .map_err(|e| Self::convert_to_rpc_error(&e))
     }
 
     async fn vote(
@@ -112,12 +112,12 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
             .connection_pool
             .get_client(self.target)
             .await
-            .map_err(|e| Self::to_rpc_err(&e))?;
+            .map_err(|e| Self::convert_to_rpc_error(&e))?;
 
         client
             .request_vote(req)
             .await
-            .map_err(|e| Self::to_rpc_err(&e))
+            .map_err(|e| Self::convert_to_rpc_error(&e))
     }
 
     async fn full_snapshot(
@@ -133,7 +133,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
             .connection_pool
             .get_client(self.target)
             .await
-            .map_err(|e| StreamingError::from(Self::to_rpc_err(&e)))?;
+            .map_err(|e| StreamingError::from(Self::convert_to_rpc_error(&e)))?;
 
         let chunk_size = option.snapshot_chunk_size().unwrap_or(1024 * 1024).max(1);
         let bytes = snapshot.snapshot.into_inner();
@@ -153,7 +153,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
                 closed = &mut cancel => return Err(StreamingError::Closed(closed)),
                 resp = client.install_snapshot(req) => resp,
             }
-            .map_err(|e| StreamingError::from(Self::to_rpc_err(&e)))?;
+            .map_err(|e| StreamingError::from(Self::convert_to_rpc_error(&e)))?;
 
             return Ok(SnapshotResponse::new(resp.vote));
         }
@@ -172,7 +172,7 @@ impl RaftNetworkV2<RaftTypeConfig> for GrpcRaftNetwork {
                 closed = &mut cancel => return Err(StreamingError::Closed(closed)),
                 resp = client.install_snapshot(req) => resp,
             }
-            .map_err(|e| StreamingError::from(Self::to_rpc_err(&e)))?;
+            .map_err(|e| StreamingError::from(Self::convert_to_rpc_error(&e)))?;
 
             last_vote = resp.vote;
             offset = end;
