@@ -112,7 +112,7 @@ where
         })?;
 
         Ok(Response::new(RaftMessage {
-            payload: resp_payload,
+            payload: resp_payload.into(),
         }))
     }
 
@@ -140,7 +140,7 @@ where
         })?;
 
         Ok(Response::new(RaftMessage {
-            payload: resp_payload,
+            payload: resp_payload.into(),
         }))
     }
 
@@ -169,7 +169,7 @@ where
         })?;
 
         Ok(Response::new(RaftMessage {
-            payload: resp_payload,
+            payload: resp_payload.into(),
         }))
     }
 }

@@ -99,7 +99,7 @@ impl RaftGrpcClient {
         let mut attempt = 0usize;
         let response = loop {
             let request = tonic::Request::new(RaftMessage {
-                payload: payload.clone(),
+                payload: payload.clone().into(),
             });
 
             let call = tokio::time::timeout(
@@ -159,7 +159,7 @@ impl RaftGrpcClient {
         let mut attempt = 0usize;
         let response = loop {
             let request = tonic::Request::new(RaftMessage {
-                payload: payload.clone(),
+                payload: payload.clone().into(),
             });
 
             let call = tokio::time::timeout(
@@ -219,7 +219,7 @@ impl RaftGrpcClient {
         let mut attempt = 0usize;
         let response = loop {
             let request = tonic::Request::new(RaftMessage {
-                payload: payload.clone(),
+                payload: payload.clone().into(),
             });
 
             let call = tokio::time::timeout(
