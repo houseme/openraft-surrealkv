@@ -73,7 +73,7 @@ tonic-prost-build = "0.14.5"
 # --- Testing Utilities ---
 openraft = { version = "0.10.0-alpha.15", features = ["tracing-log"] }
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
-tempfile = "3.26.0"
+tempfile = "3.27.0"
 tracing-test = "0.2.6"
 serial_test = "3.4"
 temp-env = "0.3.6"
