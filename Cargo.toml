@@ -24,7 +24,7 @@ integration-cluster = []
 
 [dependencies]
 # --- Core Raft & Storage ---
-openraft = { version = "0.10.0-alpha.15", features = ["serde", "tracing-log"] }
+openraft = { version = "0.10.0-alpha.17", features = ["serde", "tracing-log"] }
 surrealkv = "0.21.0"
 
 # --- Async Runtime & Utilities ---
@@ -71,7 +71,7 @@ tonic-prost-build = "0.14.5"
 
 [dev-dependencies]
 # --- Testing Utilities ---
-openraft = { version = "0.10.0-alpha.15", features = ["tracing-log"] }
+openraft = { version = "0.10.0-alpha.17", features = ["tracing-log"] }
 tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread"] }
 tempfile = "3.26.0"
 tracing-test = "0.2.6"
