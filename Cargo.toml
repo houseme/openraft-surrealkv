@@ -52,7 +52,7 @@ tower-http = { version = "0.6.8", features = ["trace", "cors", "compression-full
 
 # --- Observability (Logging & Metrics) ---
 tracing = "0.1"
-tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 metrics = "0.24"
 metrics-exporter-prometheus = "0.18.1"
 
