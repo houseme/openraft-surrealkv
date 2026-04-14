@@ -47,7 +47,7 @@ tonic = { version = "0.14.5", features = ["transport", "server", "tls-aws-lc"] }
 tonic-prost = "0.14.5"
 
 # --- Web Server (HTTP) ---
-axum = "0.8.8"
+axum = "0.8.9"
 tower-http = { version = "0.6.8", features = ["trace", "cors", "compression-full"] }
 
 # --- Observability (Logging & Metrics) ---
