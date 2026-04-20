@@ -57,7 +57,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = "0.18.1"
 
 # --- Utilities ---
-uuid = { version = "1.22", features = ["v4"] }
+uuid = { version = "1.23", features = ["v4"] }
 zstd = { version = "0.13.3", features = ["zstdmt"] }
 astral-tokio-tar = "0.6.0"
 crc-fast = "1.9.0"
